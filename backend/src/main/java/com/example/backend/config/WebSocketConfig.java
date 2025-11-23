@@ -7,7 +7,6 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
-import org.springframework.web.socket.messaging.DefaultSimpMessagingTemplate;
 
 @Configuration
 @EnableWebSocketMessageBroker
@@ -27,5 +26,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*") // Configure CORS as needed for production
                 .withSockJS(); // Enable SockJS fallback
+    }
+
+    @Bean
+    public SimpMessagingTemplate simpMessagingTemplate(org.springframework.messaging.simp.SimpMessagingTemplate template) {
+        return template;
     }
 }
