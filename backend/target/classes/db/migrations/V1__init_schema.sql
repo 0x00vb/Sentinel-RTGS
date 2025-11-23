@@ -30,7 +30,7 @@ CREATE TABLE ledger_entries (
   id BIGSERIAL PRIMARY KEY,
   transfer_id BIGINT REFERENCES transfers(id),
   account_id BIGINT REFERENCES accounts(id),
-  entry_type VARCHAR(6) NOT NULL, -- DEBIT/CREDIT
+  entry_type VARCHAR(6) NOT NULL ENUM('DEBIT', 'CREDIT'), -- DEBIT/CREDIT
   amount NUMERIC(36,6) NOT NULL,  -- positive
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
