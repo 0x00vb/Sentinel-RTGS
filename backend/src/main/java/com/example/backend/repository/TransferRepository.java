@@ -14,6 +14,12 @@ import java.util.UUID;
 @Repository
 public interface TransferRepository extends JpaRepository<Transfer, Long> {
 
+
+    /**
+     * Find transfer by id
+     */
+    Optional<Transfer> findById(Long transferId);
+
     /**
      * Find transfer by msg_id for idempotency checks (FR-03)
      * Critical for preventing duplicate processing of ISO20022 messages

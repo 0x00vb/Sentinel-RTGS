@@ -75,6 +75,12 @@ public class Transfer {
     public Account getSource() {
         return source;
     }
+    public UUID getMsgId() {
+        return msgId;
+    }
+    public void setMsgId(UUID msgId) {
+        this.msgId = msgId;
+    }
     public void setSource(Account source) {
         this.source = source;
     }

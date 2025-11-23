@@ -10,6 +10,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.EnumType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Objects;
+
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
@@ -43,6 +45,17 @@ public class LedgerEntry {
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    // Default constructor for JPA
+    protected LedgerEntry() {}
+
+    public LedgerEntry(Account account, Transfer transfer, EntryType entryType, BigDecimal amount) {
+        this.account = Objects.requireNonNull(account, "Account cannot be null");
+        this.transfer = Objects.requireNonNull(transfer, "Transfer cannot be null");
+        this.entryType = Objects.requireNonNull(entryType, "Entry type cannot be null");
+        this.amount = amount;
+        this.createdAt = LocalDateTime.now();
+    }
 
     // Getters
     public Long getId() {

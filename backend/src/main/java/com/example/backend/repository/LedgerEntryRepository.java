@@ -47,8 +47,8 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, Long> 
      * Should sum to zero (debits = credits)
      */
     @Query("SELECT COALESCE(SUM(CASE WHEN le.entryType = 'DEBIT' THEN -le.amount ELSE le.amount END), 0) " +
-           "FROM LedgerEntry le WHERE le.transfer = :transfer")
-    BigDecimal verifyTransferBalance(@Param("transfer") Transfer transfer);
+           "FROM LedgerEntry le WHERE le.transfer.id = :transferId")
+    BigDecimal verifyTransferBalance(@Param("transferId") Long transferId);
 
     /**
      * Find entries by transfer and account for reconciliation

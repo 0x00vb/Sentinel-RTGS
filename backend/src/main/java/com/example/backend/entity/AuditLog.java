@@ -41,6 +41,20 @@ public class AuditLog {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    // Constructor for creating immutable audit logs
+    public AuditLog(String entityType, Long entityId, String action, String payload, String prevHash, String currHash) {
+        this.entityType = entityType;
+        this.entityId = entityId;
+        this.action = action;
+        this.payload = payload;
+        this.prevHash = prevHash;
+        this.currHash = currHash;
+        this.createdAt = LocalDateTime.now();
+    }
+    
+    // Default constructor for JPA
+    protected AuditLog() {}
+    
     // Getters
     public Long getId() {
         return id;
