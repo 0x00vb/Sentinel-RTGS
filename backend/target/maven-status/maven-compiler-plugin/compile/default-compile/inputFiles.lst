@@ -1,2 +1,14 @@
-/app/src/main/java/com/example/backend/BackendApplication.java
-/app/src/main/java/com/example/backend/controllers/HealthController.java
+/home/null/projects/ledger/backend/src/main/java/com/example/backend/BackendApplication.java
+/home/null/projects/ledger/backend/src/main/java/com/example/backend/controller/HealthController.java
+/home/null/projects/ledger/backend/src/main/java/com/example/backend/entity/Account.java
+/home/null/projects/ledger/backend/src/main/java/com/example/backend/entity/AuditLog.java
+/home/null/projects/ledger/backend/src/main/java/com/example/backend/entity/LedgerEntry.java
+/home/null/projects/ledger/backend/src/main/java/com/example/backend/entity/SanctionsList.java
+/home/null/projects/ledger/backend/src/main/java/com/example/backend/entity/Transfer.java
+/home/null/projects/ledger/backend/src/main/java/com/example/backend/entity/User.java
+/home/null/projects/ledger/backend/src/main/java/com/example/backend/repository/AccountRepository.java
+/home/null/projects/ledger/backend/src/main/java/com/example/backend/repository/AuditLogRepository.java
+/home/null/projects/ledger/backend/src/main/java/com/example/backend/repository/LedgerEntryRepository.java
+/home/null/projects/ledger/backend/src/main/java/com/example/backend/repository/SanctionsListRepository.java
+/home/null/projects/ledger/backend/src/main/java/com/example/backend/repository/TransferRepository.java
+/home/null/projects/ledger/backend/src/main/java/com/example/backend/repository/UserRepository.java

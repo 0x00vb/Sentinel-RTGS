@@ -440,7 +440,7 @@ Provide a hierarchical WBS for full-scope project. (Durations are indicative —
   * 1.1.3 CI pipeline skeleton (lint, build, unit test)
 * **1.2 Core Domain**
 
-  * 1.2.1 Entities & JPA mapping (accounts, transfers, ledger_entries)
+  * 1.2.1 Entities & JPA mapping
   * 1.2.2 Repositories & DB migrations (Flyway)
   * 1.2.3 PaymentService: transactional core
 * **1.3 Gateway & Ingestion**
