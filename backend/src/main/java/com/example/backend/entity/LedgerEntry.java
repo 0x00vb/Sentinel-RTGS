@@ -67,6 +67,9 @@ public class LedgerEntry {
     public Transfer getTransfer() {
         return transfer;
     }
+    public EntryType getEntryType() {
+        return entryType;
+    }
     public BigDecimal getAmount() {
         return amount;
     }
