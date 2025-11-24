@@ -6,12 +6,15 @@ import jakarta.persistence.Id;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Column;
+import jakarta.persistence.EntityListeners;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import com.example.backend.listener.AuditEntityListener;
 
 
 @Entity
 @Table(name = "accounts")
+@EntityListeners(AuditEntityListener.class)
 public class Account {
 
     @Id

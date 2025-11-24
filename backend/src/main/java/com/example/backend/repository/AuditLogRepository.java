@@ -101,4 +101,38 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
      */
     @Query("SELECT COUNT(a) FROM AuditLog a")
     long countTotalAuditEntries();
+
+    /**
+     * Find distinct entity types that have been active since a given date (for scheduled verification)
+     */
+    @Query("SELECT DISTINCT a.entityType FROM AuditLog a WHERE a.createdAt >= :since")
+    List<String> findRecentEntityTypes(@Param("since") LocalDateTime since);
+
+    /**
+     * Find distinct entity IDs for a given entity type that have been active since a given date
+     */
+    @Query("SELECT DISTINCT a.entityId FROM AuditLog a WHERE a.entityType = :entityType AND a.createdAt >= :since")
+    List<Long> findRecentEntityIds(@Param("entityType") String entityType, @Param("since") LocalDateTime since);
+
+    /**
+     * Find all distinct entity types in the audit log
+     */
+    @Query("SELECT DISTINCT a.entityType FROM AuditLog a")
+    List<String> findAllEntityTypes();
+
+    /**
+     * Find all distinct entity IDs for a given entity type
+     */
+    @Query("SELECT DISTINCT a.entityId FROM AuditLog a WHERE a.entityType = :entityType")
+    List<Long> findAllEntityIdsForType(@Param("entityType") String entityType);
+
+    /**
+     * Count audit logs created between two dates
+     */
+    long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
+
+    /**
+     * Count audit logs created after a given date
+     */
+    long countByCreatedAtAfter(LocalDateTime since);
 }
