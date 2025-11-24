@@ -2,6 +2,11 @@
 FROM eclipse-temurin:17-jdk AS build
 WORKDIR /app
 COPY . .
+
+# Clean generated sources to ensure JAXB regeneration
+RUN rm -rf target/generated-sources
+
+# Build the package
 RUN ./mvnw package -DskipTests
 
 # Production stage

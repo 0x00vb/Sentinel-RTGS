@@ -140,6 +140,25 @@
 	<build>
 		<plugins>
 			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>build-helper-maven-plugin</artifactId>
+				<version>3.6.0</version>
+				<executions>
+					<execution>
+						<id>add-generated-sources</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>add-source</goal>
+						</goals>
+						<configuration>
+							<sources>
+								<source>target/generated-sources/xjc</source>
+							</sources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
@@ -149,27 +168,31 @@
 				<version>0.15.1</version>
 				<executions>
 					<execution>
-						<id>generate-pacs008</id>
-						<goals><goal>generate</goal></goals>
-						<configuration>
-							<schemaDirectory>src/main/resources/xsd</schemaDirectory>
-							<schemaIncludes>
-								<include>pacs.008.001.10.xsd</include>
-							</schemaIncludes>
-							<generatePackage>com.example.backend.iso20022.pacs008</generatePackage>
-							<generateDirectory>src/main/java</generateDirectory>
-						</configuration>
-					</execution>
-					<execution>
 						<id>generate-pacs002</id>
 						<goals><goal>generate</goal></goals>
+						<phase>generate-sources</phase>
 						<configuration>
 							<schemaDirectory>src/main/resources/xsd</schemaDirectory>
 							<schemaIncludes>
 								<include>pacs.002.001.12.xsd</include>
 							</schemaIncludes>
 							<generatePackage>com.example.backend.iso20022.pacs002</generatePackage>
-							<generateDirectory>src/main/java</generateDirectory>
+							<episode>false</episode>
+							<forceRegenerate>true</forceRegenerate>
+						</configuration>
+					</execution>
+					<execution>
+						<id>generate-pacs008</id>
+						<goals><goal>generate</goal></goals>
+						<phase>generate-sources</phase>
+						<configuration>
+							<schemaDirectory>src/main/resources/xsd</schemaDirectory>
+							<schemaIncludes>
+								<include>pacs.008.001.10.xsd</include>
+							</schemaIncludes>
+							<generatePackage>com.example.backend.iso20022.pacs008</generatePackage>
+							<episode>false</episode>
+							<forceRegenerate>true</forceRegenerate>
 						</configuration>
 					</execution>
 				</executions>
