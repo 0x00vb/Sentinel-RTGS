@@ -42,6 +42,12 @@ public class Transfer {
     @Column(nullable = false)
     private BigDecimal amount;
 
+    @Column(length = 34)
+    private String senderIban;
+
+    @Column(length = 34)
+    private String receiverIban;
+
     public enum TransferStatus {
         PENDING,
         CLEARED,
@@ -95,6 +101,18 @@ public class Transfer {
     }
     public void setAmount(BigDecimal amount) {
         this.amount = amount;
+    }
+    public String getSenderIban() {
+        return senderIban;
+    }
+    public void setSenderIban(String senderIban) {
+        this.senderIban = senderIban;
+    }
+    public String getReceiverIban() {
+        return receiverIban;
+    }
+    public void setReceiverIban(String receiverIban) {
+        this.receiverIban = receiverIban;
     }
     public TransferStatus getStatus() {
         return status;

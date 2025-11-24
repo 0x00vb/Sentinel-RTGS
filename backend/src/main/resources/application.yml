@@ -1,0 +1,85 @@
+# Compliance Engine Configuration
+# Based on devplan section 8.2 Implementation notes and configuration requirements
+
+compliance:
+  enabled: true
+
+  # Fuzzy Matching Configuration
+  fuzzy:
+    levenshtein-threshold: 85  # Default similarity threshold (FR-05)
+    bk-tree-enabled: true      # Enable BK-tree for high-performance matching
+    cache-size: 10000         # Size of fuzzy match result cache
+    batch-size: 100           # Batch size for bulk fuzzy matching operations
+
+  # Rule Engine Configuration
+  rules:
+    high-risk-threshold: 90    # Threshold for immediate blocking (>85% + high risk factors)
+    medium-risk-threshold: 75  # Threshold for additional scrutiny
+    amount-threshold: 10000    # High-value transfer threshold (EUR/USD)
+    velocity-check-enabled: false  # Enable velocity-based risk checks (future feature)
+    geographic-check-enabled: false # Enable geographic risk checks (future feature)
+
+  # Sanctions Data Ingestion Configuration
+  ingestion:
+    ofac-url: https://www.treasury.gov/ofac/downloads/sdn.xml
+    eu-sanctions-url: https://webgate.ec.europa.eu/europeaid/fsd/fsdMeasures_en.xml
+    un-sanctions-url: https://scsanctions.un.org/resources/xml/en/consolidated.xml
+    schedule: "0 0 2 * * *"  # Daily at 2 AM (CRON expression)
+    batch-size: 1000          # Batch size for bulk database operations
+
+  # Worklist and Manual Review Configuration
+  worklist:
+    page-size: 50             # Default page size for worklist APIs
+    max-age-days: 30          # Maximum age for items in worklist (auto-cleanup)
+
+
+# Database Configuration (for reference - may be in application.properties)
+# spring:
+#   datasource:
+#     url: jdbc:postgresql://localhost:5432/appdb
+#     username: postgres
+#     password: postgres
+#   jpa:
+#     hibernate:
+#       ddl-auto: update
+#     show-sql: true
+#     properties:
+#       hibernate:
+#         format_sql: true
+#         dialect: org.hibernate.dialect.PostgreSQLDialect
+#         jdbc:
+#           time_zone: UTC
+
+# Logging Configuration for Compliance Engine
+logging:
+  level:
+    com.example.backend.service.ComplianceService: DEBUG
+    com.example.backend.service.FuzzyMatchService: DEBUG
+    com.example.backend.service.RuleEngineService: INFO
+    com.example.backend.service.SanctionsIngestionService: INFO
+    com.example.backend.controller.ComplianceController: INFO
+
+# Monitoring and Metrics (for future integration with Prometheus/Grafana)
+# management:
+#   endpoints:
+#     web:
+#       exposure:
+#         include: health,info,metrics,prometheus
+#   metrics:
+#     export:
+#       prometheus:
+#         enabled: true
+
+# Security Configuration (for future integration)
+# spring:
+#   security:
+#     oauth2:
+#       resourceserver:
+#         jwt:
+#           issuer-uri: ${JWT_ISSUER_URI}
+
+# Audit Configuration
+audit:
+  enabled: true
+  retention-days: 2555  # 7 years SOX compliance
+  hash-algorithm: SHA-256

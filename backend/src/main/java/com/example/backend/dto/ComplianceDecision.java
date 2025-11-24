@@ -11,16 +11,37 @@ public class ComplianceDecision {
         REJECT
     }
 
+    // Getters
     public Long getTransferId() {
         return transferId;
     }
+
     public DecisionType getDecision() {
         return decision;
     }
+
     public String getReviewer() {
         return reviewer;
     }
+
     public String getNotes() {
         return notes;
+    }
+
+    // Setters
+    public void setTransferId(Long transferId) {
+        this.transferId = transferId;
+    }
+
+    public void setDecision(DecisionType decision) {
+        this.decision = decision;
+    }
+
+    public void setReviewer(String reviewer) {
+        this.reviewer = reviewer;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
     }
 }

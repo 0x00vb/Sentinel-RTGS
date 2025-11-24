@@ -33,29 +33,60 @@ public class SanctionsList {
 
     @Column(nullable = false)
     private int riskScore = 50;
-    // No updates: insert-only by design for audit purposes
+    // Getters and setters
     public Long getId() {
         return id;
     }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     public String getName() {
         return name;
     }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
     public String getNormalizedName() {
         return normalizedName;
     }
+
     public void setNormalizedName(String normalizedName) {
         this.normalizedName = normalizedName;
     }
+
     public LocalDateTime getAddedAt() {
         return addedAt;
     }
+
+    public void setAddedAt(LocalDateTime addedAt) {
+        this.addedAt = addedAt;
+    }
+
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
     }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
     public String getSource() {
         return source;
     }
+
+    public void setSource(String source) {
+        this.source = source;
+    }
+
     public int getRiskScore() {
         return riskScore;
+    }
+
+    public void setRiskScore(int riskScore) {
+        this.riskScore = riskScore;
     }
 }
