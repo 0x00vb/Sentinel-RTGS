@@ -2,13 +2,15 @@ package com.example.backend.service;
 
 import com.example.backend.entity.Transfer;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import com.example.backend.dto.TransferEvent;
 
 @Service
 public class TransferEventPublisher {
-    @Autowired 
+    @Autowired
+    @Qualifier("brokerMessagingTemplate")
     private SimpMessagingTemplate messagingTemplate; // for WebSocket notifications
     
     /**

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Test data fixtures for pacs.008 messages -->
+<!-- Valid message for happy path testing -->
+<pacs008:Document xmlns:pacs008="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.10">
+    <pacs008:FIToFICstmrCdtTrf>
+        <pacs008:GrpHdr>
+            <pacs008:MsgId>TEST-MSG-001</pacs008:MsgId>
+            <pacs008:CreDtTm>2025-11-23T12:00:00.000Z</pacs008:CreDtTm>
+            <pacs008:NbOfTxs>1</pacs008:NbOfTxs>
+            <pacs008:TtlIntrBkSttlmAmt Ccy="EUR">500.00</pacs008:TtlIntrBkSttlmAmt>
+            <pacs008:IntrBkSttlmDt>2025-11-23</pacs008:IntrBkSttlmDt>
+            <pacs008:SttlmInf>
+                <pacs008:SttlmMtd>CLRG</pacs008:SttlmMtd>
+            </pacs008:SttlmInf>
+        </pacs008:GrpHdr>
+        <pacs008:CdtTrfTxInf>
+            <pacs008:PmtId>
+                <pacs008:EndToEndId>E2E-TEST-001</pacs008:EndToEndId>
+            </pacs008:PmtId>
+            <pacs008:IntrBkSttlmAmt Ccy="EUR">500.00</pacs008:IntrBkSttlmAmt>
+            <pacs008:ChrgBr>SLEV</pacs008:ChrgBr>
+            <pacs008:Dbtr>
+                <pacs008:Nm>Test Sender Bank</pacs008:Nm>
+            </pacs008:Dbtr>
+            <pacs008:DbtrAcct>
+                <pacs008:Id>
+                    <pacs008:IBAN>DE89370400440532013000</pacs008:IBAN>
+                </pacs008:Id>
+            </pacs008:DbtrAcct>
+            <pacs008:Cdtr>
+                <pacs008:Nm>Test Receiver Bank</pacs008:Nm>
+            </pacs008:Cdtr>
+            <pacs008:CdtrAcct>
+                <pacs008:Id>
+                    <pacs008:IBAN>GB29RBOS60161331926819</pacs008:IBAN>
+                </pacs008:Id>
+            </pacs008:CdtrAcct>
+        </pacs008:CdtTrfTxInf>
+    </pacs008:FIToFICstmrCdtTrf>
+</pacs008:Document>
