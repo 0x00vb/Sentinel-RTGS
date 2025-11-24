@@ -24,6 +24,12 @@ services:
       RABBITMQ_DEFAULT_PASS: rabbitmq
     networks:
       - appnet
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build: ./backend
     ports:
@@ -32,8 +38,15 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/appdb
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_RABBITMQ_HOST: rabbitmq  
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: rabbitmq  
+      SPRING_RABBITMQ_PASSWORD: rabbitmq  
     depends_on:
-      - postgres
+      postgres:
+        condition: service_started
+      rabbitmq:  
+        condition: service_healthy  
     networks:
       - appnet
 
