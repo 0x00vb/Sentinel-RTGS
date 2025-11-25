@@ -1,26 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Sentinel DLS - Dark Theme Colors */
+  --sentinel-bg-primary: #0E1A2B;
+  --sentinel-bg-secondary: #1A2332;
+  --sentinel-bg-tertiary: #232F3F;
+  --sentinel-text-primary: #FFFFFF;
+  --sentinel-text-secondary: #B8C5D1;
+  --sentinel-text-muted: #8894A3;
+  --sentinel-border: #374151;
+  --sentinel-accent-primary: #3CE8FF;
+  --sentinel-accent-warning: #FFB648;
+  --sentinel-accent-danger: #FF3B30;
+  --sentinel-accent-success: #2DD88F;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Sentinel Color Palette */
+  --color-sentinel-bg-primary: var(--sentinel-bg-primary);
+  --color-sentinel-bg-secondary: var(--sentinel-bg-secondary);
+  --color-sentinel-bg-tertiary: var(--sentinel-bg-tertiary);
+  --color-sentinel-text-primary: var(--sentinel-text-primary);
+  --color-sentinel-text-secondary: var(--sentinel-text-secondary);
+  --color-sentinel-text-muted: var(--sentinel-text-muted);
+  --color-sentinel-border: var(--sentinel-border);
+  --color-sentinel-accent-primary: var(--sentinel-accent-primary);
+  --color-sentinel-accent-warning: var(--sentinel-accent-warning);
+  --color-sentinel-accent-danger: var(--sentinel-accent-danger);
+  --color-sentinel-accent-success: var(--sentinel-accent-success);
+
+  /* Fonts */
+  --font-inter: 'Inter', sans-serif;
+  --font-roboto-mono: 'Roboto Mono', monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Force dark theme as default */
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--sentinel-bg-primary);
+  color: var(--sentinel-text-primary);
+  font-family: var(--font-inter);
+  font-weight: 400;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--sentinel-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--sentinel-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sentinel-text-muted);
 }
