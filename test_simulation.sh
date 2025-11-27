@@ -178,10 +178,15 @@ test_load_simulation() {
 # Service management
 start_services() {
     log_info "=== Starting Services ==="
+    local compose_args="-f $COMPOSE_FILE"
+    if [ -f "docker-compose.override.yml" ]; then
+        compose_args="$compose_args -f docker-compose.override.yml"
+    fi
+
     if command -v docker-compose &> /dev/null; then
-        docker-compose -f "$COMPOSE_FILE" up -d postgres rabbitmq backend frontend
+        docker-compose $compose_args up -d postgres rabbitmq backend frontend
     elif command -v docker &> /dev/null && docker compose version &> /dev/null; then
-        docker compose -f "$COMPOSE_FILE" up -d postgres rabbitmq backend frontend
+        docker compose $compose_args up -d postgres rabbitmq backend frontend
     else
         log_error "Neither docker-compose nor docker compose found"
         exit 1
@@ -192,10 +197,15 @@ start_services() {
 
 stop_services() {
     log_info "=== Stopping Services ==="
+    local compose_args="-f $COMPOSE_FILE"
+    if [ -f "docker-compose.override.yml" ]; then
+        compose_args="$compose_args -f docker-compose.override.yml"
+    fi
+
     if command -v docker-compose &> /dev/null; then
-        docker-compose -f "$COMPOSE_FILE" down
+        docker-compose $compose_args down
     elif command -v docker &> /dev/null && docker compose version &> /dev/null; then
-        docker compose -f "$COMPOSE_FILE" down
+        docker compose $compose_args down
     fi
 }
 

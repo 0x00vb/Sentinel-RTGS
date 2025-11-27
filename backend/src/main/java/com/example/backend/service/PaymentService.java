@@ -222,6 +222,7 @@ public class PaymentService {
     private Transfer createPendingTransfer(TransferRequest request, Account source, Account dest) {
         Transfer transfer = new Transfer();
         transfer.setMsgId(request.getMsgId());
+        transfer.setExternalReference(request.getMsgId().toString());
         transfer.setSource(source);
         transfer.setDestination(dest);
         transfer.setAmount(request.getAmount());

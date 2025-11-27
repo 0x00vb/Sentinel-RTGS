@@ -28,6 +28,9 @@ public class TrafficSimulatorService {
     @Autowired
     private RabbitTemplate rabbitTemplate;
 
+    @Autowired
+    private AccountSeedingService accountSeedingService;
+
     @Value("${app.dev-mode:false}")
     private boolean devMode;
 
@@ -72,6 +75,10 @@ public class TrafficSimulatorService {
         }
 
         logger.info("Starting traffic simulation at {} messages per second", messagesPerSecond);
+
+        // Pre-populate simulation accounts to prevent race conditions
+        int accountsCreated = accountSeedingService.seedSimulationAccounts(IBAN_POOL);
+        logger.info("Simulation accounts ready: {} created, {} total", accountsCreated, IBAN_POOL.size());
 
         isRunning.set(true);
         messagesSent.set(0);
@@ -299,6 +306,7 @@ public class TrafficSimulatorService {
             receiverName, receiverIban
         );
     }
+
 
     private static List<String> generateIbanPool() {
         List<String> ibans = new ArrayList<>();
