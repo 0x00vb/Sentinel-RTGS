@@ -2,6 +2,7 @@
 
 import ProtectedRoute from '../components/ProtectedRoute';
 import WorldMap from '../components/WorldMap';
+import LedgerSection from '../ledger/page';
 
 export default function DashboardPage() {
   return (

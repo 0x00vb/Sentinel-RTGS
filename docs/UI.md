@@ -61,12 +61,21 @@ is trustworthy, modern, high-performance, and information-dense.
    - Model audit log: History of threshold changes and manual overrides
    - Purpose: Configure automated logic, not view transactions
 
-6. **General Ledger (Financial Core)** – Double-entry accounting
-   - Top KPIs: "Total Assets: $42.1B", "Total Liabilities: $38.5B"
-   - Accounting grid: Transaction ID, Debit Account, Credit Account, Amount, Running Balance
-   - T-Account visualizer: Left debits, right credits for selected account
-   - Export options: CSV/PDF/Parquet
-   - Purpose: Immutable financial truth, no risk or XML details
+6. **General Ledger (Financial Core)** – Double-entry accounting SOX
+   - Top KPIs: "Total Assets: $42.1B", "Total Liabilities: $38.5B", "Net Worth: $3.7B", "Active Accounts: 1,247"
+   - Accounting grid: Transaction ID, Debit Account, Credit Account, Amount, Running Balance, Timestamp
+   - T-Account visualizer: Left debits, right credits for selected account with running balance calculations
+   - SOX Compliance Dashboard:
+     - Real-time audit integrity status with hash chain verification indicators
+     - SOX Section 404 compliance reports with tamper detection alerts
+     - Entity audit trails showing complete transaction history with cryptographic proof
+     - Audit activity reports and compliance metrics
+     - System health monitoring for audit subsystem
+   - Transaction compliance status: Color-coded AML/SOX compliance indicators per entry
+   - Export options: CSV/PDF/JSON (Parquet via API)
+   - Audit chain verification: Click any transaction to verify cryptographic integrity
+   - Immutable audit logs: Tamper-proof financial records with SHA-256 hash chaining
+   - Purpose: SOX-compliant immutable financial truth with real-time compliance monitoring
 
 7. **System Health (Operations Center)** – Infrastructure monitoring
    - Microservice health grid: API Gateway, Risk Service, Ledger Core, Pacs.002 Sender (green/amber/red dots)
