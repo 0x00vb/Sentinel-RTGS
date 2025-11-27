@@ -211,7 +211,7 @@ function PaginationControls({
 export default function LiveWirePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [transactions, setTransactions] = useState<Transaction[]>();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const stompClientRef = useRef<Client | null>(null);
 
   useEffect(() => {
@@ -269,7 +269,9 @@ export default function LiveWirePage() {
 
           setTransactions(prev => {
             // Keep list from growing indefinitely, cap at 200
-            const updated = [newTransaction, ...prev];
+            // Handle case where prev might be undefined (defensive programming)
+            const prevList = prev || [];
+            const updated = [newTransaction, ...prevList];
             return updated.slice(0, 200);
           });
           
@@ -279,9 +281,11 @@ export default function LiveWirePage() {
           // However, to stop the pulsing, we'd need to update the state again.
           // For now, let's leave it pulsing as "new" until it's pushed down.
           setTimeout(() => {
-             setTransactions(currentList => 
-               currentList.map(t => t.id === newTransaction.id ? { ...t, isNew: false } : t)
-             );
+             setTransactions(currentList => {
+               // Handle case where currentList might be undefined (defensive programming)
+               const list = currentList || [];
+               return list.map(t => t.id === newTransaction.id ? { ...t, isNew: false } : t);
+             });
           }, 3000);
         }
       });
