@@ -195,13 +195,27 @@ public class ComplianceService {
 
     /**
      * Update transfer status based on compliance decision.
+     * 
+     * IMPORTANT: When compliance decision is CLEARED, we keep the transfer in PENDING state.
+     * The PaymentService will change it to CLEARED only after successful payment processing.
+     * This ensures proper separation of concerns:
+     * - Compliance: approves or blocks (BLOCKED_AML)
+     * - Payment: processes payment and sets CLEARED after successful settlement
+     * 
+     * This maintains compliance with devplan.md FR-08: "Each cleared transfer must create
+     * two ledger entries (debit & credit) summing to zero in the transaction boundary."
+     * The CLEARED status should only be set after the ledger entries are created.
      */
     private void updateTransferStatus(Transfer transfer, RuleEngineService.ComplianceDecision decision) {
         Transfer.TransferStatus newStatus;
 
         switch (decision.getType()) {
             case CLEARED:
-                newStatus = Transfer.TransferStatus.CLEARED;
+                // Keep as PENDING - PaymentService will set CLEARED after successful payment processing
+                // This ensures the transfer can be processed by PaymentService.processPaymentForTransfer()
+                // which requires PENDING state (FR-08 compliance)
+                newStatus = Transfer.TransferStatus.PENDING;
+                logger.debug("Transfer {} cleared by compliance, keeping PENDING for payment processing", transfer.getId());
                 break;
             case BLOCKED:
                 newStatus = Transfer.TransferStatus.BLOCKED_AML;
@@ -215,7 +229,8 @@ public class ComplianceService {
         }
 
         transfer.setStatus(newStatus);
-        logger.info("Updated transfer {} status to {}", transfer.getId(), newStatus);
+        logger.info("Updated transfer {} status to {} (compliance decision: {})", 
+                   transfer.getId(), newStatus, decision.getType());
     }
 
     /**

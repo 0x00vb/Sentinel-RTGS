@@ -2,6 +2,8 @@ package com.example.backend.listener;
 
 import com.example.backend.service.AuditService;
 import jakarta.persistence.*;
+import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.proxy.LazyInitializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -129,37 +131,55 @@ public class AuditEntityListener {
     }
 
     /**
+     * Gets the actual entity class, handling Hibernate proxies.
+     * This is essential for accessing annotations and declared fields correctly.
+     * 
+     * @param entity The entity object (may be a Hibernate proxy)
+     * @return The actual entity class, not the proxy class
+     */
+    private Class<?> getEntityClass(Object entity) {
+        if (entity instanceof HibernateProxy) {
+            HibernateProxy proxy = (HibernateProxy) entity;
+            LazyInitializer initializer = proxy.getHibernateLazyInitializer();
+            return initializer.getPersistentClass();
+        }
+        return entity.getClass();
+    }
+
+    /**
      * Extracts the entity type name from the class.
+     * Handles Hibernate proxies by getting the actual entity class name.
      */
     private String getEntityType(Object entity) {
-        return entity.getClass().getSimpleName();
+        return getEntityClass(entity).getSimpleName();
     }
 
     /**
      * Extracts the entity ID using reflection.
      * Assumes entities have a getId() method returning Long.
+     * Delegates to extractIdSafely to handle Hibernate proxies.
      */
     private Long getEntityId(Object entity) {
-        try {
-            // Try getId() method first
-            java.lang.reflect.Method getIdMethod = entity.getClass().getMethod("getId");
-            Object id = getIdMethod.invoke(entity);
-            return (Long) id;
-        } catch (Exception e) {
-            logger.warn("Could not extract entity ID for {}: {}", entity.getClass().getSimpleName(), e.getMessage());
-            return null;
-        }
+        return extractIdSafely(entity);
     }
 
     /**
      * Converts entity to a Map for audit payload.
      * Only includes non-null, non-transient fields.
+     * Handles associations by extracting IDs to avoid serialization issues.
+     * Safely handles Hibernate lazy-loaded proxies without initializing them.
+     * 
+     * CRITICAL: Uses getEntityClass() to get the real class, not the proxy class,
+     * so that annotations (@ManyToOne, @OneToOne) are properly detected.
      */
     private Map<String, Object> entityToMap(Object entity) {
         Map<String, Object> map = new HashMap<>();
 
         try {
-            Field[] fields = entity.getClass().getDeclaredFields();
+            // Get the actual entity class, not the proxy class
+            // This is essential for detecting annotations like @ManyToOne
+            Class<?> entityClass = getEntityClass(entity);
+            Field[] fields = entityClass.getDeclaredFields();
 
             for (Field field : fields) {
                 field.setAccessible(true);
@@ -176,7 +196,27 @@ public class AuditEntityListener {
 
                 // Only include non-null values
                 if (fieldValue != null) {
-                    map.put(fieldName, fieldValue);
+                    // CRITICAL FIX: Check if the field value itself is a Hibernate proxy FIRST
+                    // This handles cases where annotation detection might fail or proxies
+                    // are present even when not expected. This prevents serialization errors.
+                    if (fieldValue instanceof HibernateProxy) {
+                        Long relatedId = extractIdSafely(fieldValue);
+                        if (relatedId != null) {
+                            map.put(fieldName + "Id", relatedId);
+                        }
+                        // Skip adding the proxy object itself - this is the key fix
+                        continue;
+                    }
+                    
+                    // For associations, extract ID instead of full object
+                    if (field.isAnnotationPresent(ManyToOne.class) || field.isAnnotationPresent(OneToOne.class)) {
+                        Long relatedId = extractIdSafely(fieldValue);
+                        if (relatedId != null) {
+                            map.put(fieldName + "Id", relatedId);
+                        }
+                    } else {
+                        map.put(fieldName, fieldValue);
+                    }
                 }
             }
 
@@ -186,5 +226,60 @@ public class AuditEntityListener {
         }
 
         return map;
+    }
+
+    /**
+     * Safely extracts entity ID from an object, handling Hibernate proxies.
+     * This prevents serialization issues with lazy-loaded entities and avoids
+     * initializing proxies unnecessarily, which could cause performance issues
+     * and transaction boundary problems.
+     * 
+     * @param entity The entity object (may be a Hibernate proxy)
+     * @return The entity ID as Long, or null if extraction fails
+     */
+    private Long extractIdSafely(Object entity) {
+        try {
+            // Handle Hibernate proxies - extract ID without initializing the entity
+            if (entity instanceof HibernateProxy) {
+                HibernateProxy proxy = (HibernateProxy) entity;
+                LazyInitializer initializer = proxy.getHibernateLazyInitializer();
+                
+                // Get the ID from the proxy without initializing the entity
+                // This is safe and doesn't trigger lazy loading
+                Object identifier = initializer.getIdentifier();
+                
+                if (identifier instanceof Long) {
+                    return (Long) identifier;
+                } else if (identifier != null) {
+                    // Handle other ID types (String, UUID, Integer, etc.)
+                    logger.debug("Non-Long identifier type for entity {}: {}", 
+                               entity.getClass().getSimpleName(), identifier.getClass());
+                    // For non-Long IDs, we could convert or handle differently
+                    // For now, we'll try to convert common types
+                    if (identifier instanceof Number) {
+                        return ((Number) identifier).longValue();
+                    }
+                    // For other types (UUID, String), we skip to avoid serialization issues
+                    return null;
+                }
+            }
+            
+            // For non-proxy entities, use reflection to get ID
+            java.lang.reflect.Method getIdMethod = entity.getClass().getMethod("getId");
+            Object id = getIdMethod.invoke(entity);
+            
+            if (id instanceof Long) {
+                return (Long) id;
+            } else if (id instanceof Number) {
+                return ((Number) id).longValue();
+            }
+            
+            return null;
+            
+        } catch (Exception e) {
+            logger.warn("Could not extract ID from entity {}: {}", 
+                       entity.getClass().getSimpleName(), e.getMessage());
+            return null;
+        }
     }
 }

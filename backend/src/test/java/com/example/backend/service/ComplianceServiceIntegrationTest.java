@@ -53,7 +53,9 @@ class ComplianceServiceIntegrationTest {
 
         // Then
         assertThat(result.isSuccessful()).isTrue();
-        assertThat(transfer.getStatus()).isEqualTo(Transfer.TransferStatus.CLEARED);
+        // After compliance clears a transfer, it remains PENDING until PaymentService processes it
+        // This ensures proper separation of concerns: Compliance approves, PaymentService finalizes
+        assertThat(transfer.getStatus()).isEqualTo(Transfer.TransferStatus.PENDING);
     }
 
     @Test

@@ -36,6 +36,9 @@ public class DashboardController {
     @Autowired
     private TransferRepository transferRepository;
 
+    @Autowired
+    private RabbitMQQueueService rabbitMQQueueService;
+
     /**
      * Get comprehensive dashboard metrics for all cards.
      * Combines data from multiple services for a unified dashboard view.
@@ -57,8 +60,8 @@ public class DashboardController {
             // TODO: Implement real risk score calculation from audit data
             metrics.put("averageRiskScore", 2.1); // Placeholder value
 
-            // Queue depth (simplified - in production would query RabbitMQ management API)
-            int queueDepth = getEstimatedQueueDepth();
+            // Queue depth from RabbitMQ
+            int queueDepth = rabbitMQQueueService.getInboundQueueDepth();
             metrics.put("queueDepth", queueDepth);
 
             // Simulation status (if available)
@@ -269,20 +272,5 @@ public class DashboardController {
         return Math.min(10.0, riskRate * 10.0); // Scale to 0-10 range
     }
 
-    private int getEstimatedQueueDepth() {
-        // In production, this would query RabbitMQ management API
-        // For now, return a simulated value based on system activity
-        try {
-            Map<String, Object> simStatus = trafficSimulatorService.getSimulationStatus();
-            Boolean running = (Boolean) simStatus.get("running");
-            if (Boolean.TRUE.equals(running)) {
-                // Simulate queue depth when simulation is running
-                return 1500 + (int)(Math.random() * 1000);
-            }
-        } catch (Exception e) {
-            logger.warn("Error getting simulation status for queue depth", e);
-        }
-        return 450; // Default value matching the original mock
-    }
 
 }

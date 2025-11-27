@@ -1,276 +1,33 @@
 'use client';
 
 import ProtectedRoute from '../components/ProtectedRoute';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 
-// Mock transaction data - expanded for overflow testing
-const mockTransactions = [
-  {
-    id: 'PAY-2025-001247',
-    timestamp: '2025-11-25T14:32:15Z',
-    senderBIC: 'CHASUS33',
-    receiverBIC: 'DEUTDEFF',
-    amount: 2500000.00,
-    currency: 'USD',
-    status: 'completed',
-    pipelineStage: 'pac002_generated',
-    isNew: true
-  },
-  {
-    id: 'PAY-2025-001246',
-    timestamp: '2025-11-25T14:31:42Z',
-    senderBIC: 'HSBCGB2L',
-    receiverBIC: 'BNPAFRPP',
-    amount: 150000.00,
-    currency: 'EUR',
-    status: 'review_required',
-    pipelineStage: 'risk_check',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001245',
-    timestamp: '2025-11-25T14:31:18Z',
-    senderBIC: 'RABONL2U',
-    receiverBIC: 'CITIUS33',
-    amount: 750000.00,
-    currency: 'USD',
-    status: 'processing',
-    pipelineStage: 'ledger_entry',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001244',
-    timestamp: '2025-11-25T14:30:57Z',
-    senderBIC: 'UBSWCHZH',
-    receiverBIC: 'SCBLUS33',
-    amount: 5000000.00,
-    currency: 'CHF',
-    status: 'blocked',
-    pipelineStage: 'risk_check',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001243',
-    timestamp: '2025-11-25T14:30:33Z',
-    senderBIC: 'NWBKGB2L',
-    receiverBIC: 'INGBNL2A',
-    amount: 1250000.00,
-    currency: 'GBP',
-    status: 'completed',
-    pipelineStage: 'pac002_generated',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001242',
-    timestamp: '2025-11-25T14:29:45Z',
-    senderBIC: 'BKCHCNBJ',
-    receiverBIC: 'HSBCJPJT',
-    amount: 3000000.00,
-    currency: 'CNY',
-    status: 'processing',
-    pipelineStage: 'validation',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001241',
-    timestamp: '2025-11-25T14:29:12Z',
-    senderBIC: 'CRESCHZZ',
-    receiverBIC: 'ABNABE33',
-    amount: 890000.00,
-    currency: 'EUR',
-    status: 'completed',
-    pipelineStage: 'pac002_generated',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001240',
-    timestamp: '2025-11-25T14:28:33Z',
-    senderBIC: 'BOFAUS3N',
-    receiverBIC: 'BARCAESMM',
-    amount: 4200000.00,
-    currency: 'USD',
-    status: 'processing',
-    pipelineStage: 'ledger_entry',
-    isNew: false
-  },
-  // Additional transactions for overflow testing
-  {
-    id: 'PAY-2025-001239',
-    timestamp: '2025-11-25T14:28:01Z',
-    senderBIC: 'SANFFEFF',
-    receiverBIC: 'UNCRITMM',
-    amount: 950000.00,
-    currency: 'EUR',
-    status: 'completed',
-    pipelineStage: 'pac002_generated',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001238',
-    timestamp: '2025-11-25T14:27:28Z',
-    senderBIC: 'NDEAFIHH',
-    receiverBIC: 'DABADKKK',
-    amount: 1800000.00,
-    currency: 'DKK',
-    status: 'processing',
-    pipelineStage: 'ledger_entry',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001237',
-    timestamp: '2025-11-25T14:26:55Z',
-    senderBIC: 'ESSESESS',
-    receiverBIC: 'SBININBB',
-    amount: 2750000.00,
-    currency: 'INR',
-    status: 'review_required',
-    pipelineStage: 'risk_check',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001236',
-    timestamp: '2025-11-25T14:26:22Z',
-    senderBIC: 'MHCBJPJT',
-    receiverBIC: 'ICBKCNBJ',
-    amount: 4500000.00,
-    currency: 'JPY',
-    status: 'blocked',
-    pipelineStage: 'risk_check',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001235',
-    timestamp: '2025-11-25T14:25:49Z',
-    senderBIC: 'RBOSGB2L',
-    receiverBIC: 'ANZBAU3M',
-    amount: 3200000.00,
-    currency: 'AUD',
-    status: 'processing',
-    pipelineStage: 'validation',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001234',
-    timestamp: '2025-11-25T14:25:16Z',
-    senderBIC: 'TDOMCAT1',
-    receiverBIC: 'BMOCCAT2',
-    amount: 680000.00,
-    currency: 'CAD',
-    status: 'completed',
-    pipelineStage: 'pac002_generated',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001233',
-    timestamp: '2025-11-25T14:24:43Z',
-    senderBIC: 'BARCGB22',
-    receiverBIC: 'LOYDGB2L',
-    amount: 1100000.00,
-    currency: 'GBP',
-    status: 'processing',
-    pipelineStage: 'ledger_entry',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001232',
-    timestamp: '2025-11-25T14:24:10Z',
-    senderBIC: 'NORDEA',
-    receiverBIC: 'SWEDSESS',
-    amount: 2100000.00,
-    currency: 'SEK',
-    status: 'review_required',
-    pipelineStage: 'risk_check',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001231',
-    timestamp: '2025-11-25T14:23:37Z',
-    senderBIC: 'PKOPPLPW',
-    receiverBIC: 'BREXPLPW',
-    amount: 780000.00,
-    currency: 'PLN',
-    status: 'completed',
-    pipelineStage: 'pac002_generated',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001230',
-    timestamp: '2025-11-25T14:23:04Z',
-    senderBIC: 'RZOOAT2L',
-    receiverBIC: 'BAWAATWW',
-    amount: 1450000.00,
-    currency: 'EUR',
-    status: 'blocked',
-    pipelineStage: 'risk_check',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001229',
-    timestamp: '2025-11-25T14:22:31Z',
-    senderBIC: 'BNLIIFI1',
-    receiverBIC: 'UNCRITMM',
-    amount: 3950000.00,
-    currency: 'EUR',
-    status: 'processing',
-    pipelineStage: 'validation',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001228',
-    timestamp: '2025-11-25T14:21:58Z',
-    senderBIC: 'SEBALT22',
-    receiverBIC: 'LHVBEE22',
-    amount: 560000.00,
-    currency: 'EUR',
-    status: 'completed',
-    pipelineStage: 'pac002_generated',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001227',
-    timestamp: '2025-11-25T14:21:25Z',
-    senderBIC: 'SPDBCNBS',
-    receiverBIC: 'CMBCCNBS',
-    amount: 8900000.00,
-    currency: 'CNY',
-    status: 'processing',
-    pipelineStage: 'ledger_entry',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001226',
-    timestamp: '2025-11-25T14:20:52Z',
-    senderBIC: 'BKTRTRIS',
-    receiverBIC: 'TGBATRIS',
-    amount: 2300000.00,
-    currency: 'TRY',
-    status: 'review_required',
-    pipelineStage: 'risk_check',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001225',
-    timestamp: '2025-11-25T14:20:19Z',
-    senderBIC: 'NBADAEAA',
-    receiverBIC: 'SABBAEAA',
-    amount: 1200000.00,
-    currency: 'AED',
-    status: 'blocked',
-    pipelineStage: 'risk_check',
-    isNew: false
-  },
-  {
-    id: 'PAY-2025-001224',
-    timestamp: '2025-11-25T14:19:46Z',
-    senderBIC: 'RBOSGGSX',
-    receiverBIC: 'GSCMGGSP',
-    amount: 3400000.00,
-    currency: 'GGP',
-    status: 'processing',
-    pipelineStage: 'validation',
-    isNew: false
-  }
-];
+// Backend DTO shape
+interface TransferEvent {
+  id: number;
+  msgId: string;
+  status: 'PENDING' | 'CLEARED' | 'BLOCKED_AML' | 'REJECTED';
+  amount: number;
+  sourceIban: string;
+  destIban: string;
+  timestamp: string;
+}
+
+// UI Model
+interface Transaction {
+  id: string;
+  timestamp: string;
+  senderBIC: string; // Using this field for IBAN to minimize refactoring churn, or we can rename column
+  receiverBIC: string;
+  amount: number;
+  currency: string;
+  status: string;
+  pipelineStage: string;
+  isNew: boolean;
+}
 
 // Pipeline stages in order
 const pipelineStages = ['ingest', 'validate', 'risk', 'ledger', 'pac002'];
@@ -454,13 +211,103 @@ function PaginationControls({
 export default function LiveWirePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [transactions, setTransactions] = useState<Transaction[]>();
+  const stompClientRef = useRef<Client | null>(null);
+
+  useEffect(() => {
+    // Initialize Stomp Client
+    const client = new Client({
+      webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+      debug: (str) => {
+        console.log(str);
+      },
+      reconnectDelay: 5000,
+      heartbeatIncoming: 4000,
+      heartbeatOutgoing: 4000,
+    });
+
+    client.onConnect = (frame) => {
+      console.log('Connected: ' + frame);
+      client.subscribe('/topic/transfers', (message) => {
+        if (message.body) {
+          const event: TransferEvent = JSON.parse(message.body);
+          
+          // Map Backend DTO to Frontend Model
+          let status = 'processing';
+          let pipelineStage = 'ingest';
+
+          switch (event.status) {
+            case 'PENDING':
+              status = 'processing';
+              pipelineStage = 'validate';
+              break;
+            case 'CLEARED':
+              status = 'completed';
+              pipelineStage = 'pac002_generated'; // Final stage
+              break;
+            case 'BLOCKED_AML':
+              status = 'blocked';
+              pipelineStage = 'risk_check';
+              break;
+            case 'REJECTED':
+              status = 'review_required';
+              pipelineStage = 'ledger_entry'; // Failed somewhere
+              break;
+          }
+
+          const newTransaction: Transaction = {
+            id: event.msgId || `TX-${event.id}`, // Prefer UUID, fallback to ID
+            timestamp: event.timestamp,
+            senderBIC: event.sourceIban, // Displaying IBAN in this column for now
+            receiverBIC: event.destIban, // Displaying IBAN in this column for now
+            amount: event.amount,
+            currency: 'EUR', // Defaulting to EUR as currency isn't in event yet
+            status: status,
+            pipelineStage: pipelineStage,
+            isNew: true
+          };
+
+          setTransactions(prev => {
+            // Keep list from growing indefinitely, cap at 200
+            const updated = [newTransaction, ...prev];
+            return updated.slice(0, 200);
+          });
+          
+          // Remove 'isNew' flag after animation (e.g., 3 seconds)
+          // This is a simplified approach; strictly in React we might need a separate state or effect
+          // but for a high-frequency feed, just letting it be 'isNew' until it scrolls off or is replaced is often fine.
+          // However, to stop the pulsing, we'd need to update the state again.
+          // For now, let's leave it pulsing as "new" until it's pushed down.
+          setTimeout(() => {
+             setTransactions(currentList => 
+               currentList.map(t => t.id === newTransaction.id ? { ...t, isNew: false } : t)
+             );
+          }, 3000);
+        }
+      });
+    };
+
+    client.onStompError = (frame) => {
+      console.error('Broker reported error: ' + frame.headers['message']);
+      console.error('Additional details: ' + frame.body);
+    };
+
+    client.activate();
+    stompClientRef.current = client;
+
+    return () => {
+      if (stompClientRef.current) {
+        stompClientRef.current.deactivate();
+      }
+    };
+  }, []);
 
   // Calculate pagination
-  const totalTransactions = mockTransactions.length;
+  const totalTransactions = transactions?.length || 0;
   const totalPages = Math.ceil(totalTransactions / pageSize);
   const startIndex = (currentPage - 1) * pageSize;
   const endIndex = startIndex + pageSize;
-  const currentTransactions = mockTransactions.slice(startIndex, endIndex);
+  const currentTransactions = transactions?.slice(startIndex, endIndex) || [];
 
   const goToPage = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
@@ -501,13 +348,13 @@ export default function LiveWirePage() {
                     Timestamp
                   </th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-sentinel-text-secondary uppercase tracking-wider">
-                    Payment ID
+                    Transaction ID
                   </th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-sentinel-text-secondary uppercase tracking-wider">
-                    Sender BIC
+                    Sender IBAN
                   </th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-sentinel-text-secondary uppercase tracking-wider">
-                    Receiver BIC
+                    Receiver IBAN
                   </th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-sentinel-text-secondary uppercase tracking-wider">
                     Amount

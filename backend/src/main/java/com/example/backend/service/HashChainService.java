@@ -35,6 +35,11 @@ public class HashChainService {
         // 'false' turns it into a standard ISO String "2025-11-27T03:46:30" which is better for hashing.
         this.canonicalObjectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         
+        // Ignore Hibernate-specific properties that can't be serialized
+        // This is a defensive measure - the main fix is in AuditEntityListener
+        // to extract IDs from proxies before serialization
+        this.canonicalObjectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+        
         // Safety check: Explicitly register module again just in case, 
         // though copying the defaultMapper usually handles this.
         this.canonicalObjectMapper.registerModule(new JavaTimeModule());

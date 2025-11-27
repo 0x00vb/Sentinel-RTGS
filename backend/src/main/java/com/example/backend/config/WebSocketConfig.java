@@ -1,8 +1,6 @@
 package com.example.backend.config;
 
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
@@ -28,8 +26,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 .withSockJS(); // Enable SockJS fallback
     }
 
-    @Bean
-    public SimpMessagingTemplate simpMessagingTemplate(org.springframework.messaging.simp.SimpMessagingTemplate template) {
-        return template;
-    }
+    // Note: Spring Boot automatically creates a SimpMessagingTemplate bean named "brokerMessagingTemplate"
+    // when @EnableWebSocketMessageBroker is present, so no manual bean definition is needed.
 }
