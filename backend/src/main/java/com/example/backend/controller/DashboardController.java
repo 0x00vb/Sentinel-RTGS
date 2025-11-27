@@ -8,8 +8,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import com.example.backend.repository.TransferRepository;
 
 /**
  * REST Controller for Dashboard metrics and real-time data.
@@ -29,6 +32,9 @@ public class DashboardController {
 
     @Autowired
     private TrafficSimulatorService trafficSimulatorService;
+
+    @Autowired
+    private TransferRepository transferRepository;
 
     /**
      * Get comprehensive dashboard metrics for all cards.
@@ -151,6 +157,98 @@ public class DashboardController {
                 "events", java.util.Collections.emptyList()
             ));
         }
+    }
+
+    /**
+     * Get transaction heatmap data by country (ISO_A3 format for world map).
+     * Optimized to aggregate in database and map ISO_A2 (IBAN) to ISO_A3 (map) codes.
+     */
+    @GetMapping("/heatmap/countries")
+    public ResponseEntity<Map<String, Integer>> getCountryHeatmapData(
+            @RequestParam(defaultValue = "24") int hours) {
+        try {
+            LocalDateTime since = LocalDateTime.now().minusHours(hours);
+            
+            // Get aggregated country counts from database (ISO_A2 format)
+            List<Object[]> countryCountsA2 = transferRepository.getCountryTransactionCounts(since);
+            
+            // Map ISO_A2 to ISO_A3 and aggregate
+            Map<String, Integer> heatmapData = new HashMap<>();
+            for (Object[] row : countryCountsA2) {
+                String isoA2 = (String) row[0];
+                Long count = ((Number) row[1]).longValue();
+                
+                // Convert ISO_A2 to ISO_A3
+                String isoA3 = isoA2ToIsoA3(isoA2);
+                if (isoA3 != null) {
+                    heatmapData.put(isoA3, heatmapData.getOrDefault(isoA3, 0) + count.intValue());
+                }
+            }
+            
+            logger.debug("Country heatmap data: {} countries from {} hours", heatmapData.size(), hours);
+            return ResponseEntity.ok(heatmapData);
+            
+        } catch (Exception e) {
+            logger.error("Error retrieving country heatmap data", e);
+            return ResponseEntity.internalServerError().body(Map.of());
+        }
+    }
+
+    /**
+     * Maps ISO 3166-1 alpha-2 (IBAN country codes) to ISO 3166-1 alpha-3 (map country codes).
+     * This is a subset of common banking countries. For production, use a full mapping library.
+     */
+    private String isoA2ToIsoA3(String isoA2) {
+        if (isoA2 == null || isoA2.length() != 2) {
+            return null;
+        }
+        
+        // Common banking countries mapping
+        return switch (isoA2.toUpperCase()) {
+            case "DE" -> "DEU"; // Germany
+            case "GB" -> "GBR"; // United Kingdom
+            case "FR" -> "FRA"; // France
+            case "ES" -> "ESP"; // Spain
+            case "IT" -> "ITA"; // Italy
+            case "NL" -> "NLD"; // Netherlands
+            case "CH" -> "CHE"; // Switzerland
+            case "BE" -> "BEL"; // Belgium
+            case "AT" -> "AUT"; // Austria
+            case "SE" -> "SWE"; // Sweden
+            case "NO" -> "NOR"; // Norway
+            case "DK" -> "DNK"; // Denmark
+            case "FI" -> "FIN"; // Finland
+            case "PL" -> "POL"; // Poland
+            case "PT" -> "PRT"; // Portugal
+            case "IE" -> "IRL"; // Ireland
+            case "GR" -> "GRC"; // Greece
+            case "CZ" -> "CZE"; // Czech Republic
+            case "HU" -> "HUN"; // Hungary
+            case "RO" -> "ROU"; // Romania
+            case "US" -> "USA"; // United States
+            case "CA" -> "CAN"; // Canada
+            case "AU" -> "AUS"; // Australia
+            case "NZ" -> "NZL"; // New Zealand
+            case "JP" -> "JPN"; // Japan
+            case "CN" -> "CHN"; // China
+            case "KR" -> "KOR"; // South Korea
+            case "SG" -> "SGP"; // Singapore
+            case "HK" -> "HKG"; // Hong Kong
+            case "IN" -> "IND"; // India
+            case "BR" -> "BRA"; // Brazil
+            case "MX" -> "MEX"; // Mexico
+            case "AR" -> "ARG"; // Argentina
+            case "ZA" -> "ZAF"; // South Africa
+            case "RU" -> "RUS"; // Russia
+            case "TR" -> "TUR"; // Turkey
+            case "AE" -> "ARE"; // United Arab Emirates
+            case "SA" -> "SAU"; // Saudi Arabia
+            case "TH" -> "THA"; // Thailand
+            case "MY" -> "MYS"; // Malaysia
+            case "ID" -> "IDN"; // Indonesia
+            case "PH" -> "PHL"; // Philippines
+            default -> null; // Unknown country code
+        };
     }
 
     // Helper methods

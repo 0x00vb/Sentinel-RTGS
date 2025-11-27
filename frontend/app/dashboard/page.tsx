@@ -3,12 +3,13 @@
 import ProtectedRoute from '../components/ProtectedRoute';
 import WorldMap from '../components/WorldMap';
 import { useState } from 'react';
-import { useDashboardMetrics, useDashboardEvents, useLiveMetrics } from '../hooks/useDashboardData';
+import { useDashboardMetrics, useDashboardEvents, useLiveMetrics, useCountryHeatmap } from '../hooks/useDashboardData';
 
 export default function DashboardPage() {
   const { metrics, loading: metricsLoading, error: metricsError } = useDashboardMetrics();
   const { events, loading: eventsLoading } = useDashboardEvents();
   const { liveMetrics } = useLiveMetrics();
+  const { countryData, loading: heatmapLoading } = useCountryHeatmap(24);
   const [isLoading, setIsLoading] = useState(false);
 
   const startSimulation = async (messagesPerSecond = 5) => {
@@ -230,7 +231,13 @@ export default function DashboardPage() {
               </h3>
               {/* Real World Map Heatmap */}
               <div className="h-80 bg-sentinel-bg-tertiary rounded-lg relative overflow-hidden">
-                <WorldMap className="w-full h-full" />
+                {heatmapLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="animate-pulse text-sentinel-text-secondary">Loading heatmap data...</div>
+                  </div>
+                ) : (
+                  <WorldMap className="w-full h-full" countryData={countryData} />
+                )}
               </div>
             </div>
           </div>

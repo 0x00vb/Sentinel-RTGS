@@ -44,8 +44,10 @@ public class ComplianceService {
     /**
      * Evaluate a transfer for compliance violations.
      * This is the main entry point for sanction screening in the processing pipeline.
+     * Uses REQUIRES_NEW propagation to ensure compliance evaluation runs in its own transaction
+     * and doesn't interfere with payment processing transactions.
      */
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public ProcessingResult evaluateTransfer(Transfer transfer) {
         logger.info("Starting compliance evaluation for transfer {}", transfer.getId());
 

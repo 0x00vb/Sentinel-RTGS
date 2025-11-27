@@ -110,35 +110,49 @@ public class GatewayService {
     /**
      * Processes the transfer through sanctions checking and ledger operations.
      * Integrates with ComplianceService for sanction screening before payment processing.
+     * 
+     * Flow:
+     * 1. Create transfer in PENDING state
+     * 2. Run compliance evaluation
+     * 3. If cleared, process payment
+     * 4. If blocked, keep as BLOCKED_AML
      */
     private ProcessingResult processTransfer(Pacs008Message pacs008Message) {
         try {
-            // First, create the transfer entity from the message
+            // Step 1: Create transfer request from message
             TransferRequest transferRequest = createTransferRequestFromMessage(pacs008Message);
-            TransferResponse response = paymentService.processTransfer(transferRequest, "gateway");
 
-            // Find the created transfer
-            Transfer transfer = transferRepository.findByMsgId(pacs008Message.getMessageId())
-                .orElseThrow(() -> new RuntimeException("Transfer not found after processing"));
+            // Step 2: Create transfer in PENDING state (without processing payment)
+            Transfer transfer = paymentService.createPendingTransferForCompliance(transferRequest, "gateway");
+            logger.debug("Created PENDING transfer {} for compliance evaluation", transfer.getId());
 
-            // Step 1: Run compliance evaluation
+            // Step 3: Run compliance evaluation on PENDING transfer
             logger.debug("Running compliance evaluation for transfer {}", transfer.getId());
             ProcessingResult complianceResult = complianceService.evaluateTransfer(transfer);
 
-            // Step 2: Handle compliance decision
+            // Step 4: Handle compliance decision
             if (complianceResult.getStatus() == ProcessingResult.Status.BLOCKED_SANCTIONS) {
-                // Transfer is blocked - payment processing should be rolled back
-                // In a full implementation, this would trigger a rollback of the payment transaction
+                // Transfer is blocked - keep as BLOCKED_AML, don't process payment
                 logger.warn("Transfer {} blocked by compliance engine: {}",
                            transfer.getId(), complianceResult.getErrorMessage());
                 return complianceResult;
             }
 
-            // Step 3: If cleared or manual review, proceed with success
-            // Manual review means it's blocked for now but queued for compliance officer review
-            logger.info("Transfer {} compliance evaluation completed: {}",
-                       transfer.getId(), complianceResult.getStatus());
-            return ProcessingResult.success(transfer);
+            // Step 5: If cleared by compliance, process the payment
+            logger.info("Transfer {} cleared by compliance, processing payment", transfer.getId());
+            try {
+                TransferResponse paymentResponse = paymentService.processPaymentForTransfer(transfer, "gateway");
+                logger.info("Transfer {} payment processed successfully", transfer.getId());
+                return ProcessingResult.success(transfer);
+            } catch (Exception paymentException) {
+                logger.error("Payment processing failed for transfer {}: {}",
+                           transfer.getId(), paymentException.getMessage(), paymentException);
+                // Update transfer status to indicate payment failure
+                transfer.setStatus(Transfer.TransferStatus.REJECTED);
+                transferRepository.save(transfer);
+                return ProcessingResult.processingError(
+                    "Payment processing failed: " + paymentException.getMessage(), "PAY001");
+            }
 
         } catch (Exception e) {
             logger.error("Transfer processing failed for message {}: {}",

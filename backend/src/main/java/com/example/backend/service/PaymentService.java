@@ -217,6 +217,115 @@ public class PaymentService {
                 "Transfer rejected by compliance", transfer.getCompletedAt());
     }
 
+    /**
+     * Create a transfer in PENDING state without processing payment.
+     * Used for compliance evaluation before payment processing.
+     */
+    @Transactional(timeout = 30)
+    public Transfer createPendingTransferForCompliance(TransferRequest request, String actor) {
+        final String normalizedActor = actor == null ? "system" : actor;
+
+        // Check for duplicates
+        Optional<Transfer> maybeExisting = transferRepository.findByMsgId(request.getMsgId());
+        if (maybeExisting.isPresent()) {
+            return maybeExisting.get();
+        }
+
+        // Validate accounts exist
+        Account sourceAccount = accountRepository.findByIban(request.getSenderIban())
+                .orElseThrow(() -> new AccountNotFoundException("Source account not found: " + request.getSenderIban()));
+        Account destAccount = accountRepository.findByIban(request.getReceiverIban())
+                .orElseThrow(() -> new AccountNotFoundException("Destination account not found: " + request.getReceiverIban()));
+
+        // Validate currency
+        validateCurrencyCompatibility(sourceAccount, destAccount, request.getCurrency());
+
+        // Create and save PENDING transfer
+        Transfer transfer = createPendingTransfer(request, sourceAccount, destAccount);
+        
+        try {
+            Transfer savedTransfer = transferRepository.saveAndFlush(transfer);
+            auditService.logAudit("transfer", savedTransfer.getId(), "TRANSFER_CREATED",
+                    createAuditPayload(savedTransfer, normalizedActor, "Transfer created for compliance evaluation"));
+            return savedTransfer;
+        } catch (DataIntegrityViolationException dive) {
+            // Concurrent insert - fetch existing
+            return transferRepository.findByMsgId(request.getMsgId())
+                    .orElseThrow(() -> new RuntimeException("Failed to create transfer", dive));
+        }
+    }
+
+    /**
+     * Process payment for an existing PENDING transfer that has passed compliance.
+     * This method assumes the transfer already exists and has been cleared by compliance.
+     */
+    @Transactional(timeout = 30)
+    @Retryable(
+        value = {org.springframework.dao.DeadlockLoserDataAccessException.class,
+                 PessimisticLockingFailureException.class},
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 100, multiplier = 2)
+    )
+    public TransferResponse processPaymentForTransfer(Transfer transfer, String actor) {
+        final String normalizedActor = actor == null ? "system" : actor;
+
+        // Validate transfer is in correct state
+        if (transfer.getStatus() != Transfer.TransferStatus.PENDING) {
+            throw new InvalidTransferException("Transfer must be in PENDING state to process payment. Current status: " + transfer.getStatus());
+        }
+
+        // Reload accounts with locks
+        Account sourceAccount = transfer.getSource();
+        Account destAccount = transfer.getDestination();
+
+        // Acquire locks in canonical order
+        Account firstToLock = sourceAccount.getId() <= destAccount.getId() ? sourceAccount : destAccount;
+        Account secondToLock = sourceAccount.getId() <= destAccount.getId() ? destAccount : sourceAccount;
+
+        Account lockedFirst = accountRepository.findByIdForUpdate(firstToLock.getId())
+                .orElseThrow(() -> new AccountNotFoundException("Account lock failed: " + firstToLock.getId()));
+        Account lockedSecond = accountRepository.findByIdForUpdate(secondToLock.getId())
+                .orElseThrow(() -> new AccountNotFoundException("Account lock failed: " + secondToLock.getId()));
+
+        Account lockedSource = lockedFirst.getId().equals(sourceAccount.getId()) ? lockedFirst : lockedSecond;
+        Account lockedDest = lockedFirst.getId().equals(destAccount.getId()) ? lockedFirst : lockedSecond;
+
+        // Balance check
+        if (lockedSource.getBalance().compareTo(transfer.getAmount()) < 0) {
+            auditService.logAudit("transfer", transfer.getId(), "INSUFFICIENT_FUNDS",
+                    createAuditPayload(transfer, normalizedActor, "Insufficient funds"));
+            throw new InsufficientFundsException("Insufficient funds in source account");
+        }
+
+        try {
+            // Create ledger entries
+            createLedgerEntries(transfer, lockedSource, lockedDest);
+
+            // Update balances
+            updateBalances(lockedSource, lockedDest, transfer.getAmount());
+
+            // Finalize transfer
+            transfer.setStatus(Transfer.TransferStatus.CLEARED);
+            transfer.setCompletedAt(LocalDateTime.now(ZoneOffset.UTC));
+            transferRepository.save(transfer);
+
+            // Audit
+            auditService.logAudit("transfer", transfer.getId(), "CLEARED",
+                    createAuditPayload(transfer, normalizedActor, "Transfer processed successfully"));
+
+            // Publish event after commit
+            registerAfterCommit(() -> eventPublisher.publishTransferEvent(transfer));
+
+            return new TransferResponse(transfer.getMsgId(), transfer.getStatus(),
+                    "Transfer processed successfully", transfer.getCompletedAt());
+
+        } catch (RuntimeException rte) {
+            auditService.logAudit("transfer", transfer.getId(), "PROCESSING_FAILED",
+                    createAuditPayload(transfer, normalizedActor, "Processing failed: " + rte.getMessage()));
+            throw rte;
+        }
+    }
+
     // --- Helpers ---
 
     private Transfer createPendingTransfer(TransferRequest request, Account source, Account dest) {
@@ -226,6 +335,8 @@ public class PaymentService {
         transfer.setSource(source);
         transfer.setDestination(dest);
         transfer.setAmount(request.getAmount());
+        transfer.setSenderIban(request.getSenderIban());
+        transfer.setReceiverIban(request.getReceiverIban());
         transfer.setStatus(Transfer.TransferStatus.PENDING);
         transfer.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
         return transfer;

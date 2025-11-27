@@ -128,3 +128,35 @@ export function useLiveMetrics() {
 
   return { liveMetrics, loading };
 }
+
+export function useCountryHeatmap(hours: number = 24) {
+  const [countryData, setCountryData] = useState<{ [key: string]: number }>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchHeatmap = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/v1/dashboard/heatmap/countries?hours=${hours}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setCountryData(data);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to fetch country heatmap data:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  }, [hours]);
+
+  useEffect(() => {
+    fetchHeatmap();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchHeatmap, 30000);
+    return () => clearInterval(interval);
+  }, [fetchHeatmap]);
+
+  return { countryData, loading, error, refetch: fetchHeatmap };
+}

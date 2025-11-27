@@ -5,41 +5,12 @@ import * as d3 from 'd3';
 import * as topojson from 'topojson-client';
 import type { FeatureCollection, Geometry } from 'geojson';
 
-// Sample data for heatmap - countries with transfer activity levels
-const transferData: { [key: string]: number } = {
-  'USA': 95,
-  'CHN': 88,
-  'GBR': 72,
-  'DEU': 68,
-  'FRA': 65,
-  'JPN': 58,
-  'CAN': 52,
-  'AUS': 48,
-  'NLD': 45,
-  'CHE': 42,
-  'SGP': 38,
-  'KOR': 35,
-  'IND': 32,
-  'BRA': 28,
-  'MEX': 25,
-  'ZAF': 22,
-  'RUS': 20,
-  'ITA': 18,
-  'ESP': 16,
-  'ARE': 14,
-  'HKG': 12,
-  'TUR': 10,
-  'THA': 8,
-  'MYS': 6,
-  'IDN': 4,
-  'PHL': 2,
-};
-
 interface WorldMapProps {
   className?: string;
+  countryData?: { [key: string]: number }; // ISO_A3 country code -> transaction count
 }
 
-export default function WorldMap({ className = '' }: WorldMapProps) {
+export default function WorldMap({ className = '', countryData }: WorldMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [worldData, setWorldData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -75,9 +46,16 @@ export default function WorldMap({ className = '' }: WorldMapProps) {
 
     const path = d3.geoPath().projection(projection);
 
+    // Use provided data or fallback to empty (no activity)
+    const transferData = countryData || {};
+    
+    // Calculate max value for normalization (use 1 if no data to avoid division by zero)
+    const values = Object.values(transferData);
+    const maxValue = values.length > 0 ? Math.max(...values) : 1;
+
     // Create color scale based on transfer activity
     const colorScale = d3.scaleSequential()
-      .domain([0, 100])
+      .domain([0, maxValue])
       .interpolator(d3.interpolateRgbBasis([
         '#1a1a2e', // Very low activity - dark background
         '#0f3460', // Low activity
@@ -132,7 +110,7 @@ export default function WorldMap({ className = '' }: WorldMapProps) {
           .style('z-index', '1000')
           .html(`
             <div style="font-weight: 600;">${countryName}</div>
-            <div style="color: #fca311;">Activity: ${activity > 0 ? activity + '%' : 'No data'}</div>
+            <div style="color: #fca311;">Transactions: ${activity > 0 ? activity.toLocaleString() : 'No data'}</div>
           `);
 
         tooltip
@@ -158,7 +136,9 @@ export default function WorldMap({ className = '' }: WorldMapProps) {
       .attr('fill', 'none')
       .attr('stroke', (d: any) => {
         const activity = transferData[d.properties.ISO_A3] || 0;
-        return activity > 70 ? '#e63946' : activity > 40 ? '#fca311' : '#533483';
+        const threshold70 = maxValue * 0.7;
+        const threshold40 = maxValue * 0.4;
+        return activity > threshold70 ? '#e63946' : activity > threshold40 ? '#fca311' : '#533483';
       })
       .attr('stroke-width', 0.8)
       .attr('opacity', 0.6)
@@ -229,7 +209,7 @@ export default function WorldMap({ className = '' }: WorldMapProps) {
       .attr('text-anchor', 'middle')
       .text('Activity Level');
 
-  }, [worldData]);
+  }, [worldData, countryData]);
 
   if (loading) {
     return (

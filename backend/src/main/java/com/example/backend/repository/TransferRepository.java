@@ -73,4 +73,32 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
      */
     @Query("SELECT SUM(t.amount) FROM Transfer t WHERE t.status = :status")
     java.math.BigDecimal getTotalAmountByStatus(@Param("status") Transfer.TransferStatus status);
+
+    /**
+     * Optimized query to get country transaction counts from IBANs.
+     * Only selects IBAN fields and aggregates in database for performance.
+     * Returns map of ISO_A2 country code -> transaction count.
+     */
+    @Query(value = """
+        WITH country_counts AS (
+            SELECT SUBSTRING(sender_iban, 1, 2) AS country_code, COUNT(*) AS cnt
+            FROM transfers
+            WHERE sender_iban IS NOT NULL 
+              AND LENGTH(sender_iban) >= 2
+              AND created_at >= :since
+            GROUP BY SUBSTRING(sender_iban, 1, 2)
+            UNION ALL
+            SELECT SUBSTRING(receiver_iban, 1, 2) AS country_code, COUNT(*) AS cnt
+            FROM transfers
+            WHERE receiver_iban IS NOT NULL 
+              AND LENGTH(receiver_iban) >= 2
+              AND created_at >= :since
+            GROUP BY SUBSTRING(receiver_iban, 1, 2)
+        )
+        SELECT country_code, SUM(cnt) AS total_count
+        FROM country_counts
+        GROUP BY country_code
+        ORDER BY total_count DESC
+        """, nativeQuery = true)
+    List<Object[]> getCountryTransactionCounts(@Param("since") java.time.LocalDateTime since);
 }
