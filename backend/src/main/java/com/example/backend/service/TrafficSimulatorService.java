@@ -53,7 +53,27 @@ public class TrafficSimulatorService {
         "UBS AG", "Credit Suisse AG", "ING Group", "ABN AMRO Bank", "Nordea Bank",
         "Danske Bank", "SEB", "Swedbank", "DNB", "Handelsbanken", "Erste Group Bank",
         "Raiffeisen Bank", "UniCredit Group", "Intesa Sanpaolo", "Banca Monte dei Paschi",
-        "Banco Santander", "CaixaBank", "Bankia", "Sabadell", "Kutxabank"
+        "Banco Santander", "CaixaBank", "Bankia", "Sabadell", "Kutxabank",
+        "JPMorgan Chase Bank NA", "Bank of America", "Wells Fargo Bank", "Citibank NA",
+        "Royal Bank of Canada", "Toronto-Dominion Bank", "Bank of Nova Scotia",
+        "Commonwealth Bank of Australia", "Westpac Banking Corporation", "Australia and New Zealand Banking Group",
+        "Mizuho Corporate Bank Ltd", "Sumitomo Mitsui Banking Corporation", "Mitsubishi UFJ Financial Group",
+        "Bank of China", "Industrial and Commercial Bank of China", "China Construction Bank",
+        "State Bank of India", "ICICI Bank", "HDFC Bank",
+        "Banco do Brasil", "Itaú Unibanco", "Banco Bradesco",
+        "Banco Nacional de México", "Banco Santander México", "BBVA Bancomer",
+        "Korea Development Bank", "Shinhan Bank", "Woori Bank",
+        "DBS Bank Ltd", "United Overseas Bank", "OCBC Bank",
+        "HSBC Hong Kong", "Bank of China Hong Kong", "Hang Seng Bank",
+        "Emirates NBD", "First Abu Dhabi Bank", "Abu Dhabi Commercial Bank",
+        "Al Rajhi Bank", "Saudi National Bank", "Riyad Bank",
+        "Standard Bank of South Africa", "FirstRand Bank", "Nedbank",
+        "PKO Bank Polski", "Bank Pekao", "mBank",
+        "Česká spořitelna", "Komerční banka", "ČSOB",
+        "Türkiye İş Bankası", "Garanti BBVA", "Akbank",
+        "Sberbank", "VTB Bank", "Gazprombank",
+        "Banco de la Nación Argentina", "Banco Santander Río", "Banco Galicia",
+        "Banco de Chile", "Banco Santander Chile", "Banco de Crédito e Inversiones"
     );
 
     // Sanctions-triggering names (reduced frequency for realistic simulation)
@@ -358,8 +378,54 @@ public class TrafficSimulatorService {
             return "GBP";
         } else if (iban.startsWith("CH")) {
             return "CHF";
+        } else if (iban.startsWith("US")) {
+            return "USD";
+        } else if (iban.startsWith("CA")) {
+            return "CAD";
+        } else if (iban.startsWith("AU")) {
+            return "AUD";
+        } else if (iban.startsWith("JP")) {
+            return "JPY";
+        } else if (iban.startsWith("CN")) {
+            return "CNY";
+        } else if (iban.startsWith("IN")) {
+            return "INR";
+        } else if (iban.startsWith("BR")) {
+            return "BRL";
+        } else if (iban.startsWith("MX")) {
+            return "MXN";
+        } else if (iban.startsWith("KR")) {
+            return "KRW";
+        } else if (iban.startsWith("SG")) {
+            return "SGD";
+        } else if (iban.startsWith("HK")) {
+            return "HKD";
+        } else if (iban.startsWith("AE")) {
+            return "AED";
+        } else if (iban.startsWith("SA")) {
+            return "SAR";
+        } else if (iban.startsWith("ZA")) {
+            return "ZAR";
+        } else if (iban.startsWith("NO")) {
+            return "NOK";
+        } else if (iban.startsWith("SE")) {
+            return "SEK";
+        } else if (iban.startsWith("DK")) {
+            return "DKK";
+        } else if (iban.startsWith("PL")) {
+            return "PLN";
+        } else if (iban.startsWith("CZ")) {
+            return "CZK";
+        } else if (iban.startsWith("TR")) {
+            return "TRY";
+        } else if (iban.startsWith("RU")) {
+            return "RUB";
+        } else if (iban.startsWith("AR")) {
+            return "ARS";
+        } else if (iban.startsWith("CL")) {
+            return "CLP";
         } else {
-            // EUR for most European countries (DE, FR, ES, IT, NL, etc.)
+            // EUR for most European countries (DE, FR, ES, IT, NL, AT, BE, FI, etc.)
             return "EUR";
         }
     }
@@ -431,6 +497,7 @@ public class TrafficSimulatorService {
 
     private static List<String> generateIbanPool() {
         List<String> ibans = new ArrayList<>();
+        ThreadLocalRandom random = ThreadLocalRandom.current();
 
         // Add some real-looking IBANs for major European banks
         ibans.addAll(Arrays.asList(
@@ -450,9 +517,284 @@ public class TrafficSimulatorService {
             "CH6309000000900100003", "CH6309000000900100004", "CH6309000000900100005"
         ));
 
-        // Generate additional random but valid-looking IBANs
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-        for (int i = 0; i < 200; i++) {
+        // United States (account numbers, not IBAN)
+        for (int i = 0; i < 10; i++) {
+            ibans.add(String.format("US%02d%04d%012d",
+                random.nextInt(10, 99),
+                random.nextInt(1000, 9999),
+                random.nextLong(100000000000L, 999999999999L)
+            ));
+        }
+
+        // Canada
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("CA%02d%04d%012d",
+                random.nextInt(10, 99),
+                random.nextInt(1000, 9999),
+                random.nextLong(100000000000L, 999999999999L)
+            ));
+        }
+
+        // Australia
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("AU%02d%04d%010d",
+                random.nextInt(10, 99),
+                random.nextInt(1000, 9999),
+                random.nextLong(1000000000L, 9999999999L)
+            ));
+        }
+
+        // Japan
+        for (int i = 0; i < 10; i++) {
+            ibans.add(String.format("JP%02d%04d%010d",
+                random.nextInt(10, 99),
+                random.nextInt(1000, 9999),
+                random.nextLong(1000000000L, 9999999999L)
+            ));
+        }
+
+        // China
+        for (int i = 0; i < 10; i++) {
+            ibans.add(String.format("CN%02d%04d%016d",
+                random.nextInt(10, 99),
+                random.nextInt(1000, 9999),
+                random.nextLong(1000000000000000L, 9999999999999999L)
+            ));
+        }
+
+        // India
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("IN%02d%04d%011d",
+                random.nextInt(10, 99),
+                random.nextInt(1000, 9999),
+                random.nextLong(10000000000L, 99999999999L)
+            ));
+        }
+
+        // Brazil
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("BR%02d%08d%05d%01d%010d",
+                random.nextInt(10, 99),
+                random.nextInt(10000000, 99999999),
+                random.nextInt(10000, 99999),
+                random.nextInt(0, 9),
+                random.nextLong(1000000000L, 9999999999L)
+            ));
+        }
+
+        // Mexico
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("MX%02d%04d%018d",
+                random.nextInt(10, 99),
+                random.nextInt(1000, 9999),
+                random.nextLong(100000000000000000L, 999999999999999999L)
+            ));
+        }
+
+        // South Korea
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("KR%02d%04d%010d",
+                random.nextInt(10, 99),
+                random.nextInt(1000, 9999),
+                random.nextLong(1000000000L, 9999999999L)
+            ));
+        }
+
+        // Singapore
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("SG%02d%04d%010d%03d",
+                random.nextInt(10, 99),
+                random.nextInt(1000, 9999),
+                random.nextLong(1000000000L, 9999999999L),
+                random.nextInt(100, 999)
+            ));
+        }
+
+        // Hong Kong
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("HK%02d%03d%010d",
+                random.nextInt(10, 99),
+                random.nextInt(100, 999),
+                random.nextLong(1000000000L, 9999999999L)
+            ));
+        }
+
+        // UAE
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("AE%02d%03d%016d",
+                random.nextInt(10, 99),
+                random.nextInt(100, 999),
+                random.nextLong(1000000000000000L, 9999999999999999L)
+            ));
+        }
+
+        // Saudi Arabia
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("SA%02d%02d%018d",
+                random.nextInt(10, 99),
+                random.nextInt(10, 99),
+                random.nextLong(100000000000000000L, 999999999999999999L)
+            ));
+        }
+
+        // South Africa
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("ZA%02d%02d%010d%03d",
+                random.nextInt(10, 99),
+                random.nextInt(10, 99),
+                random.nextLong(1000000000L, 9999999999L),
+                random.nextInt(100, 999)
+            ));
+        }
+
+        // Norway
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("NO%02d%04d%06d%01d",
+                random.nextInt(10, 99),
+                random.nextInt(1000, 9999),
+                random.nextInt(100000, 999999),
+                random.nextInt(0, 9)
+            ));
+        }
+
+        // Sweden
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("SE%02d%03d%17d",
+                random.nextInt(10, 99),
+                random.nextInt(100, 999),
+                random.nextLong(10000000000000000L, 99999999999999999L)
+            ));
+        }
+
+        // Denmark
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("DK%02d%04d%010d",
+                random.nextInt(10, 99),
+                random.nextInt(1000, 9999),
+                random.nextLong(1000000000L, 9999999999L)
+            ));
+        }
+
+        // Poland
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("PL%02d%08d%016d",
+                random.nextInt(10, 99),
+                random.nextInt(10000000, 99999999),
+                random.nextLong(1000000000000000L, 9999999999999999L)
+            ));
+        }
+
+        // Czech Republic
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("CZ%02d%04d%06d%010d",
+                random.nextInt(10, 99),
+                random.nextInt(1000, 9999),
+                random.nextInt(100000, 999999),
+                random.nextLong(1000000000L, 9999999999L)
+            ));
+        }
+
+        // Turkey
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("TR%02d%05d%01d%016d",
+                random.nextInt(10, 99),
+                random.nextInt(10000, 99999),
+                random.nextInt(0, 9),
+                random.nextLong(1000000000000000L, 9999999999999999L)
+            ));
+        }
+
+        // Russia
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("RU%02d%04d%04d%015d%01d",
+                random.nextInt(10, 99),
+                random.nextInt(1000, 9999),
+                random.nextInt(1000, 9999),
+                random.nextLong(100000000000000L, 999999999999999L),
+                random.nextInt(0, 9)
+            ));
+        }
+
+        // Argentina
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("AR%02d%04d%018d",
+                random.nextInt(10, 99),
+                random.nextInt(1000, 9999),
+                random.nextLong(100000000000000000L, 999999999999999999L)
+            ));
+        }
+
+        // Chile
+        for (int i = 0; i < 8; i++) {
+            ibans.add(String.format("CL%02d%03d%014d",
+                random.nextInt(10, 99),
+                random.nextInt(100, 999),
+                random.nextLong(10000000000000L, 99999999999999L)
+            ));
+        }
+
+        // Additional European countries
+        // Austria
+        for (int i = 0; i < 6; i++) {
+            ibans.add(String.format("AT%02d%05d%011d",
+                random.nextInt(10, 99),
+                random.nextInt(10000, 99999),
+                random.nextLong(10000000000L, 99999999999L)
+            ));
+        }
+
+        // Belgium
+        for (int i = 0; i < 6; i++) {
+            ibans.add(String.format("BE%02d%03d%07d%02d",
+                random.nextInt(10, 99),
+                random.nextInt(100, 999),
+                random.nextInt(1000000, 9999999),
+                random.nextInt(10, 99)
+            ));
+        }
+
+        // Finland
+        for (int i = 0; i < 6; i++) {
+            ibans.add(String.format("FI%02d%06d%07d",
+                random.nextInt(10, 99),
+                random.nextInt(100000, 999999),
+                random.nextInt(1000000, 9999999)
+            ));
+        }
+
+        // Greece
+        for (int i = 0; i < 6; i++) {
+            ibans.add(String.format("GR%02d%03d%04d%016d",
+                random.nextInt(10, 99),
+                random.nextInt(100, 999),
+                random.nextInt(1000, 9999),
+                random.nextLong(1000000000000000L, 9999999999999999L)
+            ));
+        }
+
+        // Portugal
+        for (int i = 0; i < 6; i++) {
+            ibans.add(String.format("PT%02d%04d%04d%011d%02d",
+                random.nextInt(10, 99),
+                random.nextInt(1000, 9999),
+                random.nextInt(1000, 9999),
+                random.nextLong(10000000000L, 99999999999L),
+                random.nextInt(10, 99)
+            ));
+        }
+
+        // Ireland
+        for (int i = 0; i < 6; i++) {
+            ibans.add(String.format("IE%02d%04d%04d%08d",
+                random.nextInt(10, 99),
+                random.nextInt(1000, 9999),
+                random.nextInt(1000, 9999),
+                random.nextInt(10000000, 99999999)
+            ));
+        }
+
+        // Generate additional random but valid-looking IBANs (mostly European)
+        for (int i = 0; i < 100; i++) {
             // Generate German IBAN (most common)
             String iban = String.format("DE%02d%04d%010d",
                 random.nextInt(10, 99), // BLZ

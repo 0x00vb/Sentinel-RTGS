@@ -89,8 +89,66 @@ public class AccountSeedingService {
             return "ING Group";
         } else if (iban.startsWith("CH")) {
             return "UBS AG";
+        } else if (iban.startsWith("US")) {
+            return "JPMorgan Chase Bank NA";
+        } else if (iban.startsWith("CA")) {
+            return "Royal Bank of Canada";
+        } else if (iban.startsWith("AU")) {
+            return "Commonwealth Bank of Australia";
+        } else if (iban.startsWith("JP")) {
+            return "Mizuho Corporate Bank Ltd";
+        } else if (iban.startsWith("CN")) {
+            return "Bank of China";
+        } else if (iban.startsWith("IN")) {
+            return "State Bank of India";
+        } else if (iban.startsWith("BR")) {
+            return "Banco do Brasil";
+        } else if (iban.startsWith("MX")) {
+            return "Banco Nacional de México";
+        } else if (iban.startsWith("KR")) {
+            return "Korea Development Bank";
+        } else if (iban.startsWith("SG")) {
+            return "DBS Bank Ltd";
+        } else if (iban.startsWith("HK")) {
+            return "HSBC Hong Kong";
+        } else if (iban.startsWith("AE")) {
+            return "Emirates NBD";
+        } else if (iban.startsWith("SA")) {
+            return "Al Rajhi Bank";
+        } else if (iban.startsWith("ZA")) {
+            return "Standard Bank of South Africa";
+        } else if (iban.startsWith("NO")) {
+            return "DNB Bank";
+        } else if (iban.startsWith("SE")) {
+            return "Swedbank";
+        } else if (iban.startsWith("DK")) {
+            return "Danske Bank";
+        } else if (iban.startsWith("PL")) {
+            return "PKO Bank Polski";
+        } else if (iban.startsWith("CZ")) {
+            return "Česká spořitelna";
+        } else if (iban.startsWith("TR")) {
+            return "Türkiye İş Bankası";
+        } else if (iban.startsWith("RU")) {
+            return "Sberbank";
+        } else if (iban.startsWith("AR")) {
+            return "Banco de la Nación Argentina";
+        } else if (iban.startsWith("CL")) {
+            return "Banco de Chile";
+        } else if (iban.startsWith("AT")) {
+            return "Erste Group Bank";
+        } else if (iban.startsWith("BE")) {
+            return "KBC Bank";
+        } else if (iban.startsWith("FI")) {
+            return "Nordea Bank";
+        } else if (iban.startsWith("GR")) {
+            return "National Bank of Greece";
+        } else if (iban.startsWith("PT")) {
+            return "Caixa Geral de Depósitos";
+        } else if (iban.startsWith("IE")) {
+            return "Bank of Ireland";
         } else {
-            return "European Commercial Bank";
+            return "International Commercial Bank";
         }
     }
 
@@ -102,8 +160,54 @@ public class AccountSeedingService {
             return "GBP";
         } else if (iban.startsWith("CH")) {
             return "CHF";
+        } else if (iban.startsWith("US")) {
+            return "USD";
+        } else if (iban.startsWith("CA")) {
+            return "CAD";
+        } else if (iban.startsWith("AU")) {
+            return "AUD";
+        } else if (iban.startsWith("JP")) {
+            return "JPY";
+        } else if (iban.startsWith("CN")) {
+            return "CNY";
+        } else if (iban.startsWith("IN")) {
+            return "INR";
+        } else if (iban.startsWith("BR")) {
+            return "BRL";
+        } else if (iban.startsWith("MX")) {
+            return "MXN";
+        } else if (iban.startsWith("KR")) {
+            return "KRW";
+        } else if (iban.startsWith("SG")) {
+            return "SGD";
+        } else if (iban.startsWith("HK")) {
+            return "HKD";
+        } else if (iban.startsWith("AE")) {
+            return "AED";
+        } else if (iban.startsWith("SA")) {
+            return "SAR";
+        } else if (iban.startsWith("ZA")) {
+            return "ZAR";
+        } else if (iban.startsWith("NO")) {
+            return "NOK";
+        } else if (iban.startsWith("SE")) {
+            return "SEK";
+        } else if (iban.startsWith("DK")) {
+            return "DKK";
+        } else if (iban.startsWith("PL")) {
+            return "PLN";
+        } else if (iban.startsWith("CZ")) {
+            return "CZK";
+        } else if (iban.startsWith("TR")) {
+            return "TRY";
+        } else if (iban.startsWith("RU")) {
+            return "RUB";
+        } else if (iban.startsWith("AR")) {
+            return "ARS";
+        } else if (iban.startsWith("CL")) {
+            return "CLP";
         } else {
-            // EUR for most European countries
+            // EUR for most European countries (DE, FR, ES, IT, NL, AT, BE, FI, GR, PT, IE, etc.)
             return "EUR";
         }
     }

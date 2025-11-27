@@ -65,26 +65,54 @@ export default function WorldMap({ className = '', countryData }: WorldMapProps)
   useEffect(() => {
     // Load world topojson data with ISO codes
     // Using a dataset that includes ISO_A3 codes
-    fetch('https://cdn.jsdelivr.net/npm/world-atlas@3/countries-110m.json')
-      .then(response => response.json())
-      .then(data => {
-        setWorldData(data);
-        setLoading(false);
-      })
-      .catch(error => {
-        console.error('Error loading world data, trying fallback:', error);
-        // Fallback to version 2
-        return fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
-          .then(response => response.json())
-          .then(data => {
+    const loadWorldData = async () => {
+      const urls = [
+        'https://cdn.jsdelivr.net/npm/world-atlas@3/countries-110m.json',
+        'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json',
+        'https://unpkg.com/world-atlas@3/countries-110m.json',
+        'https://unpkg.com/world-atlas@2/countries-110m.json'
+      ];
+
+      for (const url of urls) {
+        try {
+          const response = await fetch(url);
+          
+          // Check if response is OK
+          if (!response.ok) {
+            console.warn(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+            continue;
+          }
+
+          // Check Content-Type
+          const contentType = response.headers.get('content-type');
+          if (!contentType || !contentType.includes('application/json')) {
+            console.warn(`Unexpected content type for ${url}: ${contentType}`);
+            continue;
+          }
+
+          const data = await response.json();
+          
+          // Validate that we got valid TopoJSON data
+          if (data && data.type === 'Topology' && data.objects) {
             setWorldData(data);
             setLoading(false);
-          })
-          .catch(fallbackError => {
-            console.error('Error loading fallback world data:', fallbackError);
-            setLoading(false);
-          });
-      });
+            return;
+          } else {
+            console.warn(`Invalid TopoJSON data from ${url}`);
+            continue;
+          }
+        } catch (error) {
+          console.error(`Error loading world data from ${url}:`, error);
+          continue;
+        }
+      }
+
+      // If all URLs failed, log error and set loading to false
+      console.error('Failed to load world data from all sources');
+      setLoading(false);
+    };
+
+    loadWorldData();
   }, []);
 
   useEffect(() => {
@@ -361,6 +389,16 @@ export default function WorldMap({ className = '', countryData }: WorldMapProps)
     return (
       <div className={`flex items-center justify-center ${className}`}>
         <div className="animate-pulse text-sentinel-text-secondary">Loading world map...</div>
+      </div>
+    );
+  }
+
+  if (!worldData) {
+    return (
+      <div className={`flex items-center justify-center ${className}`}>
+        <div className="text-sentinel-text-secondary text-sm">
+          Unable to load world map data. Please check your network connection.
+        </div>
       </div>
     );
   }
