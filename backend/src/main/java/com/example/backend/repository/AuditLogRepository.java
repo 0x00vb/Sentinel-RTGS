@@ -2,6 +2,7 @@ package com.example.backend.repository;
 
 import com.example.backend.entity.AuditLog;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -135,4 +136,11 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
      * Count audit logs created after a given date
      */
     long countByCreatedAtAfter(LocalDateTime since);
+
+    /**
+     * Update payload by ID (for data integrity testing - dev mode only)
+     */
+    @Query("UPDATE AuditLog a SET a.payload = :payload WHERE a.id = :id")
+    @Modifying
+    void updatePayloadById(@Param("id") Long id, @Param("payload") String payload);
 }

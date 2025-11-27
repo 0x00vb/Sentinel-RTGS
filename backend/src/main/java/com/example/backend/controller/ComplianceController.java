@@ -8,9 +8,11 @@ import com.example.backend.repository.AuditLogRepository;
 import com.example.backend.repository.TransferRepository;
 import com.example.backend.service.AuditService;
 import com.example.backend.service.ComplianceService;
+import com.example.backend.service.DataIntegrityService;
 import com.example.backend.service.FuzzyMatchService;
 import com.example.backend.service.RuleEngineService;
 import com.example.backend.service.SanctionsIngestionService;
+import com.example.backend.service.TrafficSimulatorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +44,8 @@ public class ComplianceController {
     private final TransferRepository transferRepository;
     private final AuditLogRepository auditLogRepository;
     private final AuditService auditService;
+    private final DataIntegrityService dataIntegrityService;
+    private final TrafficSimulatorService trafficSimulatorService;
 
     @Autowired
     public ComplianceController(ComplianceService complianceService,
@@ -50,7 +54,9 @@ public class ComplianceController {
                                RuleEngineService ruleEngineService,
                                TransferRepository transferRepository,
                                AuditLogRepository auditLogRepository,
-                               AuditService auditService) {
+                               AuditService auditService,
+                               DataIntegrityService dataIntegrityService,
+                               TrafficSimulatorService trafficSimulatorService) {
         this.complianceService = complianceService;
         this.sanctionsIngestionService = sanctionsIngestionService;
         this.fuzzyMatchService = fuzzyMatchService;
@@ -58,6 +64,8 @@ public class ComplianceController {
         this.transferRepository = transferRepository;
         this.auditLogRepository = auditLogRepository;
         this.auditService = auditService;
+        this.dataIntegrityService = dataIntegrityService;
+        this.trafficSimulatorService = trafficSimulatorService;
     }
 
     // ===== WORKLIST MANAGEMENT =====
@@ -329,6 +337,130 @@ public class ComplianceController {
         } catch (Exception e) {
             logger.error("Error fetching compliance stats: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    // ===== DATA INTEGRITY TESTING =====
+
+    /**
+     * Perform controlled data integrity test for SOX compliance demonstration.
+     * Only available in development mode.
+     */
+    @PostMapping("/integrity/test")
+    public ResponseEntity<Map<String, Object>> performDataIntegrityTest() {
+        logger.info("Performing controlled data integrity test");
+
+        try {
+            String result = dataIntegrityService.performIntegrityTest();
+
+            return ResponseEntity.ok(Map.of(
+                "status", "test_executed",
+                "message", result,
+                "recommendation", "Run audit chain verification to confirm tamper detection is working"
+            ));
+
+        } catch (Exception e) {
+            logger.error("Error performing data integrity test", e);
+            return ResponseEntity.badRequest().body(Map.of(
+                "status", "error",
+                "message", "Data integrity test failed: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Check data integrity testing capabilities.
+     */
+    @GetMapping("/integrity/status")
+    public ResponseEntity<Map<String, Object>> getDataIntegrityStatus() {
+        try {
+            String status = dataIntegrityService.verifyIntegrityTestingCapabilities();
+
+            return ResponseEntity.ok(Map.of(
+                "status", "available",
+                "message", status
+            ));
+
+        } catch (Exception e) {
+            logger.error("Error checking data integrity status", e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "status", "error",
+                "message", "Failed to check integrity status: " + e.getMessage()
+            ));
+        }
+    }
+
+    // ===== TRAFFIC SIMULATION =====
+
+    /**
+     * Start traffic simulation (alias for /api/v1/simulation/start).
+     */
+    @PostMapping("/simulation/start")
+    public ResponseEntity<Map<String, Object>> startTrafficSimulation(
+            @RequestParam(defaultValue = "5") int messagesPerSecond) {
+
+        logger.info("Starting traffic simulation via compliance endpoint");
+
+        try {
+            String result = trafficSimulatorService.startSimulation(messagesPerSecond);
+
+            return ResponseEntity.ok(Map.of(
+                "status", "started",
+                "message", result,
+                "messagesPerSecond", messagesPerSecond
+            ));
+
+        } catch (Exception e) {
+            logger.error("Error starting traffic simulation", e);
+            return ResponseEntity.badRequest().body(Map.of(
+                "status", "error",
+                "message", "Failed to start simulation: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Stop traffic simulation (alias for /api/v1/simulation/stop).
+     */
+    @PostMapping("/simulation/stop")
+    public ResponseEntity<Map<String, Object>> stopTrafficSimulation() {
+
+        logger.info("Stopping traffic simulation via compliance endpoint");
+
+        try {
+            String result = trafficSimulatorService.stopSimulation();
+
+            return ResponseEntity.ok(Map.of(
+                "status", "stopped",
+                "message", result
+            ));
+
+        } catch (Exception e) {
+            logger.error("Error stopping traffic simulation", e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "status", "error",
+                "message", "Failed to stop simulation: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Get traffic simulation status (alias for /api/v1/simulation/status).
+     */
+    @GetMapping("/simulation/status")
+    public ResponseEntity<Map<String, Object>> getTrafficSimulationStatus() {
+
+        try {
+            Map<String, Object> status = trafficSimulatorService.getSimulationStatus();
+
+            return ResponseEntity.ok(status);
+
+        } catch (Exception e) {
+            logger.error("Error getting traffic simulation status", e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "status", "error",
+                "message", "Failed to get simulation status: " + e.getMessage()
+            ));
         }
     }
 

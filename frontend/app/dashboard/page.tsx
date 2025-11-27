@@ -3,8 +3,93 @@
 import ProtectedRoute from '../components/ProtectedRoute';
 import WorldMap from '../components/WorldMap';
 import LedgerSection from '../ledger/page';
+import { useState, useEffect } from 'react';
 
 export default function DashboardPage() {
+  const [simulationStatus, setSimulationStatus] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    fetchSimulationStatus();
+    // Refresh status every 5 seconds
+    const interval = setInterval(fetchSimulationStatus, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchSimulationStatus = async () => {
+    try {
+      const response = await fetch('/api/v1/simulation/status');
+      if (response.ok) {
+        const status = await response.json();
+        setSimulationStatus(status);
+      } else {
+        console.error('Failed to fetch simulation status:', response.status, response.statusText);
+        setSimulationStatus({ running: false, devMode: false, messagesSent: 0, error: true });
+      }
+    } catch (error) {
+      console.error('Failed to fetch simulation status:', error);
+      setSimulationStatus({ running: false, devMode: false, messagesSent: 0, error: true });
+    }
+  };
+
+  const startSimulation = async (messagesPerSecond = 5) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/v1/simulation/start?messagesPerSecond=${messagesPerSecond}`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        await fetchSimulationStatus();
+      } else {
+        console.error('Failed to start simulation:', response.status, response.statusText);
+        alert(`Failed to start simulation: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Failed to start simulation:', error);
+      alert(`Failed to start simulation: ${error.message}`);
+    }
+    setIsLoading(false);
+  };
+
+  const stopSimulation = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/v1/simulation/stop', {
+        method: 'POST'
+      });
+      if (response.ok) {
+        await fetchSimulationStatus();
+      } else {
+        console.error('Failed to stop simulation:', response.status, response.statusText);
+        alert(`Failed to stop simulation: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Failed to stop simulation:', error);
+      alert(`Failed to stop simulation: ${error.message}`);
+    }
+    setIsLoading(false);
+  };
+
+  const performIntegrityTest = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/v1/compliance/integrity/test', {
+        method: 'POST'
+      });
+      if (response.ok) {
+        const result = await response.json();
+        alert(result.message);
+      } else {
+        console.error('Failed to perform integrity test:', response.status, response.statusText);
+        alert(`Failed to perform integrity test: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Failed to perform integrity test:', error);
+      alert(`Failed to perform integrity test: ${error.message}`);
+    }
+    setIsLoading(false);
+  };
+
   return (
     <ProtectedRoute>
       <div className="p-6 space-y-6">
@@ -115,6 +200,136 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Traffic Simulation Controls */}
+        <div className="bg-sentinel-bg-secondary border border-sentinel-border rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-sentinel-text-primary mb-1">
+                Traffic Simulation Controls
+              </h3>
+              <p className="text-sentinel-text-secondary text-sm">
+                Generate realistic banking traffic for testing and demonstration
+              </p>
+            </div>
+            {simulationStatus && (
+              <div className="flex items-center space-x-2">
+                <div className={`w-3 h-3 rounded-full ${simulationStatus.running ? 'bg-sentinel-accent-success animate-pulse' : 'bg-sentinel-text-muted'}`}></div>
+                <span className="text-sm text-sentinel-text-secondary">
+                  {simulationStatus.running ? 'Running' : 'Stopped'}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            {/* Start/Stop Controls */}
+            <div className="flex space-x-2">
+              {!simulationStatus?.running ? (
+                <>
+                  <button
+                    onClick={() => startSimulation(2)}
+                    disabled={isLoading || !simulationStatus?.devMode}
+                    className="px-4 py-2 bg-sentinel-accent-primary text-sentinel-bg-primary rounded-lg hover:bg-sentinel-accent-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Start (2/sec)
+                  </button>
+                  <button
+                    onClick={() => startSimulation(5)}
+                    disabled={isLoading || !simulationStatus?.devMode}
+                    className="px-4 py-2 bg-sentinel-accent-primary text-sentinel-bg-primary rounded-lg hover:bg-sentinel-accent-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Start (5/sec)
+                  </button>
+                  <button
+                    onClick={() => startSimulation(10)}
+                    disabled={isLoading || !simulationStatus?.devMode}
+                    className="px-4 py-2 bg-sentinel-accent-primary text-sentinel-bg-primary rounded-lg hover:bg-sentinel-accent-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Start (10/sec)
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={stopSimulation}
+                  disabled={isLoading}
+                  className="px-4 py-2 bg-sentinel-accent-danger text-sentinel-bg-primary rounded-lg hover:bg-sentinel-accent-danger/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Stop Simulation
+                </button>
+              )}
+            </div>
+
+            {/* Send Single Message */}
+            <button
+              onClick={async () => {
+                setIsLoading(true);
+                try {
+                  const response = await fetch('/api/v1/simulation/send-test-message', {
+                    method: 'POST'
+                  });
+                  if (response.ok) {
+                    alert('Test message sent successfully');
+                  }
+                } catch (error) {
+                  console.error('Failed to send test message:', error);
+                }
+                setIsLoading(false);
+              }}
+              disabled={isLoading || !simulationStatus?.devMode}
+              className="px-4 py-2 border border-sentinel-border text-sentinel-text-primary rounded-lg hover:bg-sentinel-bg-tertiary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Send Test Message
+            </button>
+
+            {/* Integrity Test */}
+            <button
+              onClick={performIntegrityTest}
+              disabled={isLoading || !simulationStatus?.devMode}
+              className="px-4 py-2 border border-sentinel-accent-warning text-sentinel-accent-warning rounded-lg hover:bg-sentinel-accent-warning/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Integrity Test
+            </button>
+          </div>
+
+          {/* Status Information */}
+          {simulationStatus && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="bg-sentinel-bg-tertiary/50 rounded-lg p-3">
+                <div className="text-sentinel-text-secondary mb-1">Messages Sent</div>
+                <div className="text-xl font-semibold text-sentinel-text-primary">
+                  {simulationStatus.messagesSent?.toLocaleString() || '0'}
+                </div>
+              </div>
+              <div className="bg-sentinel-bg-tertiary/50 rounded-lg p-3">
+                <div className="text-sentinel-text-secondary mb-1">Development Mode</div>
+                <div className={`text-xl font-semibold ${simulationStatus.devMode ? 'text-sentinel-accent-success' : 'text-sentinel-accent-danger'}`}>
+                  {simulationStatus.devMode ? 'Enabled' : 'Disabled'}
+                </div>
+              </div>
+              <div className="bg-sentinel-bg-tertiary/50 rounded-lg p-3">
+                <div className="text-sentinel-text-secondary mb-1">Status</div>
+                <div className={`text-xl font-semibold ${simulationStatus.running ? 'text-sentinel-accent-success' : 'text-sentinel-text-muted'}`}>
+                  {simulationStatus.running ? 'Active' : 'Inactive'}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!simulationStatus?.devMode && (
+            <div className="mt-4 p-3 bg-sentinel-accent-warning/10 border border-sentinel-accent-warning/30 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <svg className="w-5 h-5 text-sentinel-accent-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sentinel-accent-warning font-medium">Development Mode Required</span>
+              </div>
+              <p className="text-sentinel-text-secondary text-sm mt-1">
+                Traffic simulation is only available in development mode for security and compliance reasons.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Bottom Section - Event Stream */}
