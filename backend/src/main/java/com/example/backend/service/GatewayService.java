@@ -8,7 +8,6 @@ import com.example.backend.dto.TransferRequest;
 import com.example.backend.dto.TransferResponse;
 import com.example.backend.entity.Transfer;
 import com.example.backend.repository.TransferRepository;
-import com.example.backend.service.ComplianceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.AmqpRejectAndDontRequeueException;

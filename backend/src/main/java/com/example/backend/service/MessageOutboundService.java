@@ -2,7 +2,17 @@ package com.example.backend.service;
 
 import com.example.backend.config.RabbitMQConfig;
 import com.example.backend.dto.StatusReportMessage;
-import com.example.backend.iso20022.pacs002.*;
+import com.example.backend.iso20022.pacs002.Document;
+import com.example.backend.iso20022.pacs002.FIToFIPaymentStatusReportV12;
+import com.example.backend.iso20022.pacs002.ObjectFactory;
+import com.example.backend.iso20022.pacs002.GroupHeader96;
+import com.example.backend.iso20022.pacs002.OriginalGroupInformation29;
+import com.example.backend.iso20022.pacs002.TransactionGroupStatus3Code;
+import com.example.backend.iso20022.pacs002.StatusReasonInformation12;
+import com.example.backend.iso20022.pacs002.StatusReason6Choice;
+import com.example.backend.iso20022.pacs002.ExternalStatusReason1Code;
+import com.example.backend.iso20022.pacs002.PaymentTransaction110;
+import com.example.backend.iso20022.pacs002.TransactionIndividualStatus5Code;
 
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.XMLGregorianCalendar;
@@ -70,7 +80,8 @@ public class MessageOutboundService {
         marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
 
         StringWriter writer = new StringWriter();
-        marshaller.marshal(document, writer);
+        ObjectFactory objectFactory = new ObjectFactory();
+        marshaller.marshal(objectFactory.createDocument(document), writer);
 
         return writer.toString();
     }

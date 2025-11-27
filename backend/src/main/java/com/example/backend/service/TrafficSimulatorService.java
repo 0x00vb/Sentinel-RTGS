@@ -262,24 +262,24 @@ public class TrafficSimulatorService {
                         <pacs008:Dbtr>
                             <pacs008:Nm>%s</pacs008:Nm>
                         </pacs008:Dbtr>
-                        <pacs008:DbtrAgt>
-                            <pacs008:FinInstnId>
-                                <pacs008:Nm>Deutsche Bank AG</pacs008:Nm>
-                            </pacs008:FinInstnId>
-                        </pacs008:DbtrAgt>
                         <pacs008:DbtrAcct>
                             <pacs008:Id>
                                 <pacs008:IBAN>%s</pacs008:IBAN>
                             </pacs008:Id>
                         </pacs008:DbtrAcct>
+                        <pacs008:DbtrAgt>
+                            <pacs008:FinInstnId>
+                                <pacs008:BICFI>DEUTDEFFXXX</pacs008:BICFI>
+                            </pacs008:FinInstnId>
+                        </pacs008:DbtrAgt>
+                        <pacs008:CdtrAgt>
+                            <pacs008:FinInstnId>
+                                <pacs008:BICFI>HSBCGB2LXXX</pacs008:BICFI>
+                            </pacs008:FinInstnId>
+                        </pacs008:CdtrAgt>
                         <pacs008:Cdtr>
                             <pacs008:Nm>%s</pacs008:Nm>
                         </pacs008:Cdtr>
-                        <pacs008:CdtrAgt>
-                            <pacs008:FinInstnId>
-                                <pacs008:Nm>HSBC Bank PLC</pacs008:Nm>
-                            </pacs008:FinInstnId>
-                        </pacs008:CdtrAgt>
                         <pacs008:CdtrAcct>
                             <pacs008:Id>
                                 <pacs008:IBAN>%s</pacs008:IBAN>

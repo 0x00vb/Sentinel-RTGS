@@ -34,8 +34,8 @@ public class XmlProcessingService {
     private final Schema pacs008Schema;
 
     public XmlProcessingService() throws JAXBException {
-        // Initialize JAXB context for pacs.008
-        this.jaxbContext = JAXBContext.newInstance(Document.class);
+        // Initialize JAXB context for pacs.008 using ObjectFactory to handle missing @XmlRootElement
+        this.jaxbContext = JAXBContext.newInstance(ObjectFactory.class);
 
         // Load XSD schema for validation
         try {
@@ -100,7 +100,12 @@ public class XmlProcessingService {
      */
     private Document unmarshalXml(String xmlContent) throws JAXBException {
         Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
-        return (Document) unmarshaller.unmarshal(new StringReader(xmlContent));
+        Object result = unmarshaller.unmarshal(new StringReader(xmlContent));
+        
+        if (result instanceof javax.xml.bind.JAXBElement) {
+            return ((javax.xml.bind.JAXBElement<Document>) result).getValue();
+        }
+        return (Document) result;
     }
 
     /**
