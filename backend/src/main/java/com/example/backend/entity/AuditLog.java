@@ -6,6 +6,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import java.time.LocalDateTime;
 
 @Entity
@@ -29,7 +30,8 @@ public class AuditLog {
     private Long entityId;
 
     // JSON-string payload describing the before/after or details
-    @Column(columnDefinition = "jsonb", nullable = false)
+    // Stored as TEXT to preserve exact formatting for hash chain verification
+    @Column(columnDefinition = "TEXT", nullable = false)
     private String payload;
 
     @Column(nullable = false, updatable = false)

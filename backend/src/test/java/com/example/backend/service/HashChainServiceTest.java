@@ -3,6 +3,8 @@ package com.example.backend.service;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import static org.assertj.core.api.Assertions.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
@@ -17,7 +19,10 @@ class HashChainServiceTest {
 
     @BeforeEach
     void setUp() {
-        hashChainService = new HashChainService();
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        
+        hashChainService = new HashChainService(mapper);   
     }
 
     @Test

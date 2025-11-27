@@ -5,6 +5,8 @@ import com.example.backend.repository.AuditLogRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -12,7 +14,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.*;
@@ -45,7 +46,9 @@ class ScheduledChainVerifierTest {
     @BeforeEach
     void setUp() throws Exception {
         // Create test audit logs with valid chain
-        HashChainService hashService = new HashChainService();
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        HashChainService hashService = new HashChainService(mapper);
         String zeroHash = hashService.getZeroHash();
 
         String payload1 = hashService.createCanonicalJson(Map.of("action", "CREATE"));
