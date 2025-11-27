@@ -12,7 +12,10 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
+import java.util.stream.Collectors;
 import com.example.backend.repository.TransferRepository;
+import com.example.backend.repository.AuditLogRepository;
+import com.example.backend.entity.AuditLog;
 
 /**
  * REST Controller for Dashboard metrics and real-time data.
@@ -39,6 +42,9 @@ public class DashboardController {
     @Autowired
     private RabbitMQQueueService rabbitMQQueueService;
 
+    @Autowired
+    private AuditLogRepository auditLogRepository;
+
     /**
      * Get comprehensive dashboard metrics for all cards.
      * Combines data from multiple services for a unified dashboard view.
@@ -56,9 +62,16 @@ public class DashboardController {
             AuditReportService.ComplianceReport todayReport = auditReportService.getComplianceReport(LocalDate.now());
             metrics.put("totalTransfersToday", todayReport.getDailyAuditEntries());
 
-            // Current activity report for risk metrics
-            // TODO: Implement real risk score calculation from audit data
-            metrics.put("averageRiskScore", 2.1); // Placeholder value
+            // Current activity report for risk metrics (last 24 hours)
+            LocalDate today = LocalDate.now();
+            LocalDate yesterday = today.minusDays(1);
+            AuditReportService.ActivityReport activityReport = auditReportService.getActivityReport(yesterday, today);
+            double averageRiskScore = calculateAverageRiskScore(activityReport);
+            logger.debug("Risk score calculation - Total activities: {}, Activity by action: {}, Calculated score: {}", 
+                        activityReport.getTotalActivities(), 
+                        activityReport.getActivityByAction(), 
+                        averageRiskScore);
+            metrics.put("averageRiskScore", averageRiskScore);
 
             // Queue depth from RabbitMQ
             int queueDepth = rabbitMQQueueService.getInboundQueueDepth();
@@ -123,33 +136,29 @@ public class DashboardController {
     public ResponseEntity<Map<String, Object>> getRecentEvents(
             @RequestParam(defaultValue = "20") int limit) {
         try {
-            // For now, return mock events until we implement real audit log streaming
-            var events = java.util.Arrays.asList(
-                Map.of(
-                    "id", "system-1",
-                    "type", "transfer_completed",
-                    "message", "System initialized and ready",
-                    "timestamp", java.time.LocalDateTime.now().toString(),
-                    "severity", "success"
-                ),
-                Map.of(
-                    "id", "system-2",
-                    "type", "compliance_review_required",
-                    "message", "Compliance engine activated",
-                    "timestamp", java.time.LocalDateTime.now().minusMinutes(5).toString(),
-                    "severity", "warning"
-                ),
-                Map.of(
-                    "id", "system-3",
-                    "type", "entity_verified",
-                    "message", "Audit chain verification completed",
-                    "timestamp", java.time.LocalDateTime.now().minusMinutes(10).toString(),
-                    "severity", "success"
-                )
-            );
+            // Get recent audit logs from the last 24 hours
+            LocalDateTime since = LocalDateTime.now().minusHours(24);
+            List<AuditLog> recentLogs = auditLogRepository.findByCreatedAtAfterOrderByCreatedAtDesc(since);
+
+            // Convert audit logs to dashboard events
+            List<Map<String, Object>> events = recentLogs.stream()
+                .limit(limit)
+                .map(log -> {
+                    String severity = determineSeverity(log.getAction());
+                    String message = formatEventMessage(log);
+                    
+                    Map<String, Object> event = new HashMap<>();
+                    event.put("id", String.valueOf(log.getId()));
+                    event.put("type", log.getAction().toLowerCase());
+                    event.put("message", message);
+                    event.put("timestamp", log.getCreatedAt().toString());
+                    event.put("severity", severity);
+                    return event;
+                })
+                .collect(Collectors.toList());
 
             return ResponseEntity.ok(Map.of(
-                "events", events.stream().limit(limit).toList(),
+                "events", events,
                 "total", events.size()
             ));
 
@@ -157,7 +166,8 @@ public class DashboardController {
             logger.error("Error retrieving recent events", e);
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Failed to retrieve recent events",
-                "events", java.util.Collections.emptyList()
+                "events", java.util.Collections.emptyList(),
+                "total", 0
             ));
         }
     }
@@ -171,24 +181,53 @@ public class DashboardController {
             @RequestParam(defaultValue = "24") int hours) {
         try {
             LocalDateTime since = LocalDateTime.now().minusHours(hours);
+            logger.info("Fetching country heatmap data for last {} hours (since: {})", hours, since);
             
             // Get aggregated country counts from database (ISO_A2 format)
             List<Object[]> countryCountsA2 = transferRepository.getCountryTransactionCounts(since);
+            logger.info("Found {} country entries from database", countryCountsA2.size());
+            
+            // If no data found for the requested time range, try a longer range (7 days)
+            if (countryCountsA2.isEmpty() && hours < 168) {
+                logger.info("No data found for {} hours, trying 7 days instead", hours);
+                since = LocalDateTime.now().minusDays(7);
+                countryCountsA2 = transferRepository.getCountryTransactionCounts(since);
+                logger.info("Found {} country entries from 7-day range", countryCountsA2.size());
+            }
             
             // Map ISO_A2 to ISO_A3 and aggregate
             Map<String, Integer> heatmapData = new HashMap<>();
+            int skippedCount = 0;
             for (Object[] row : countryCountsA2) {
+                if (row == null || row.length < 2) {
+                    logger.warn("Invalid row data in country counts: {}", java.util.Arrays.toString(row));
+                    continue;
+                }
+                
                 String isoA2 = (String) row[0];
                 Long count = ((Number) row[1]).longValue();
+                
+                if (isoA2 == null || isoA2.length() != 2) {
+                    logger.warn("Invalid ISO_A2 code: {}", isoA2);
+                    skippedCount++;
+                    continue;
+                }
                 
                 // Convert ISO_A2 to ISO_A3
                 String isoA3 = isoA2ToIsoA3(isoA2);
                 if (isoA3 != null) {
-                    heatmapData.put(isoA3, heatmapData.getOrDefault(isoA3, 0) + count.intValue());
+                    int currentCount = heatmapData.getOrDefault(isoA3, 0);
+                    heatmapData.put(isoA3, currentCount + count.intValue());
+                    logger.debug("Mapped {} -> {}: {} transactions", isoA2, isoA3, count);
+                } else {
+                    logger.warn("No ISO_A3 mapping found for ISO_A2: {} ({} transactions)", isoA2, count);
+                    skippedCount++;
                 }
             }
             
-            logger.debug("Country heatmap data: {} countries from {} hours", heatmapData.size(), hours);
+            logger.info("Country heatmap data: {} countries mapped, {} skipped, total transactions: {}", 
+                       heatmapData.size(), skippedCount, 
+                       heatmapData.values().stream().mapToInt(Integer::intValue).sum());
             return ResponseEntity.ok(heatmapData);
             
         } catch (Exception e) {
@@ -260,17 +299,73 @@ public class DashboardController {
         // Simplified risk calculation based on activity patterns
         long totalActivities = activityReport.getTotalActivities();
 
-        if (totalActivities == 0) return 0.0;
+        if (totalActivities == 0) {
+            logger.debug("No activities found for risk score calculation, returning 0.0");
+            return 0.0;
+        }
 
         // Calculate risk based on action types that indicate issues
+        // Check for various risk indicators: BLOCK, REJECT, FAIL, ERROR, etc.
         long riskyActions = activityReport.getActivityByAction().entrySet().stream()
-            .filter(entry -> entry.getKey().contains("BLOCK") || entry.getKey().contains("REJECT"))
+            .filter(entry -> {
+                String action = entry.getKey().toUpperCase();
+                return action.contains("BLOCK") || 
+                       action.contains("REJECT") || 
+                       action.contains("FAIL") || 
+                       action.contains("ERROR") ||
+                       action.contains("DENIED");
+            })
             .mapToLong(Map.Entry::getValue)
             .sum();
 
         double riskRate = (double) riskyActions / totalActivities;
-        return Math.min(10.0, riskRate * 10.0); // Scale to 0-10 range
+        double riskScore = Math.min(10.0, riskRate * 10.0); // Scale to 0-10 range
+        
+        logger.debug("Risk score calculation - Total: {}, Risky: {}, Rate: {}, Score: {}", 
+                    totalActivities, riskyActions, riskRate, riskScore);
+        
+        return riskScore;
     }
 
+    /**
+     * Determine event severity based on audit log action.
+     */
+    private String determineSeverity(String action) {
+        if (action == null) {
+            return "info";
+        }
+        
+        String upperAction = action.toUpperCase();
+        if (upperAction.contains("BLOCK") || upperAction.contains("REJECT") || 
+            upperAction.contains("FAIL") || upperAction.contains("ERROR")) {
+            return "danger";
+        } else if (upperAction.contains("REVIEW") || upperAction.contains("WARNING") ||
+                   upperAction.contains("PENDING") || upperAction.contains("ALERT")) {
+            return "warning";
+        } else if (upperAction.contains("COMPLETE") || upperAction.contains("SUCCESS") ||
+                   upperAction.contains("VERIFIED") || upperAction.contains("CLEARED")) {
+            return "success";
+        }
+        return "info";
+    }
+
+    /**
+     * Format audit log into a human-readable event message.
+     */
+    private String formatEventMessage(AuditLog log) {
+        String action = log.getAction();
+        String entityType = log.getEntityType();
+        Long entityId = log.getEntityId();
+        
+        // Create a readable message based on action and entity
+        String baseMessage = action.replace("_", " ").toLowerCase();
+        baseMessage = baseMessage.substring(0, 1).toUpperCase() + baseMessage.substring(1);
+        
+        if (entityType != null && entityId != null) {
+            return String.format("%s: %s #%d", baseMessage, entityType, entityId);
+        }
+        
+        return baseMessage;
+    }
 
 }

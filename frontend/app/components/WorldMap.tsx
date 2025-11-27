@@ -10,22 +10,80 @@ interface WorldMapProps {
   countryData?: { [key: string]: number }; // ISO_A3 country code -> transaction count
 }
 
+// Mapping from common country names to ISO_A3 codes (fallback if dataset doesn't have ISO codes)
+const countryNameToISO: { [key: string]: string } = {
+  'Germany': 'DEU',
+  'United Kingdom': 'GBR',
+  'France': 'FRA',
+  'Spain': 'ESP',
+  'Italy': 'ITA',
+  'Netherlands': 'NLD',
+  'Switzerland': 'CHE',
+  'Belgium': 'BEL',
+  'Austria': 'AUT',
+  'Sweden': 'SWE',
+  'Norway': 'NOR',
+  'Denmark': 'DNK',
+  'Finland': 'FIN',
+  'Poland': 'POL',
+  'Portugal': 'PRT',
+  'Ireland': 'IRL',
+  'Greece': 'GRC',
+  'Czech Republic': 'CZE',
+  'Hungary': 'HUN',
+  'Romania': 'ROU',
+  'United States of America': 'USA',
+  'United States': 'USA',
+  'Canada': 'CAN',
+  'Australia': 'AUS',
+  'New Zealand': 'NZL',
+  'Japan': 'JPN',
+  'China': 'CHN',
+  'South Korea': 'KOR',
+  'Singapore': 'SGP',
+  'Hong Kong': 'HKG',
+  'India': 'IND',
+  'Brazil': 'BRA',
+  'Mexico': 'MEX',
+  'Argentina': 'ARG',
+  'South Africa': 'ZAF',
+  'Russia': 'RUS',
+  'Turkey': 'TUR',
+  'United Arab Emirates': 'ARE',
+  'Saudi Arabia': 'SAU',
+  'Thailand': 'THA',
+  'Malaysia': 'MYS',
+  'Indonesia': 'IDN',
+  'Philippines': 'PHL',
+};
+
 export default function WorldMap({ className = '', countryData }: WorldMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [worldData, setWorldData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load world topojson data
-    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+    // Load world topojson data with ISO codes
+    // Using a dataset that includes ISO_A3 codes
+    fetch('https://cdn.jsdelivr.net/npm/world-atlas@3/countries-110m.json')
       .then(response => response.json())
       .then(data => {
         setWorldData(data);
         setLoading(false);
       })
       .catch(error => {
-        console.error('Error loading world data:', error);
-        setLoading(false);
+        console.error('Error loading world data, trying fallback:', error);
+        // Fallback to version 2
+        return fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+          .then(response => response.json())
+          .then(data => {
+            setWorldData(data);
+            setLoading(false);
+          })
+          .catch(fallbackError => {
+            console.error('Error loading fallback world data:', fallbackError);
+            setLoading(false);
+          });
       });
   }, []);
 
@@ -49,24 +107,66 @@ export default function WorldMap({ className = '', countryData }: WorldMapProps)
     // Use provided data or fallback to empty (no activity)
     const transferData = countryData || {};
     
+    // Log data for debugging
+    if (Object.keys(transferData).length > 0) {
+      console.log('WorldMap rendering with data:', transferData);
+    } else {
+      console.log('WorldMap: No country data provided');
+    }
+    
     // Calculate max value for normalization (use 1 if no data to avoid division by zero)
-    const values = Object.values(transferData);
+    const values = Object.values(transferData) as number[];
     const maxValue = values.length > 0 ? Math.max(...values) : 1;
 
     // Create color scale based on transfer activity
+    // Use a much brighter and more visible color scale
+    // For countries with data, use bright colors; for no data, use dark background
     const colorScale = d3.scaleSequential()
       .domain([0, maxValue])
       .interpolator(d3.interpolateRgbBasis([
-        '#1a1a2e', // Very low activity - dark background
-        '#0f3460', // Low activity
-        '#16213e', // Medium-low
-        '#533483', // Medium
-        '#fca311', // Medium-high (warning color)
-        '#e63946', // High activity (danger color)
+        '#2d3a5a', // Low activity - visible blue-gray
+        '#4a5a8a', // Medium-low - lighter blue
+        '#6b7aaa', // Medium - purple-blue
+        '#8b7aca', // Medium-high - purple
+        '#fca311', // High - orange (warning color)
+        '#e63946', // Very high - red (danger color)
       ]));
+    
+    // Debug: Log color scale test
+    console.log('Color scale test:', {
+      maxValue,
+      minColor: colorScale(0),
+      midColor: colorScale(maxValue / 2),
+      maxColor: colorScale(maxValue),
+      testValues: Object.entries(transferData).slice(0, 3).map(([code, val]) => ({
+        code,
+        value: val,
+        color: colorScale(val as number)
+      }))
+    });
 
     // Get countries data
     const countries = topojson.feature(worldData, worldData.objects.countries) as unknown as FeatureCollection<Geometry>;
+
+    // Debug: Check what properties are available in the first country
+    if (countries.features.length > 0) {
+      const firstCountry = countries.features[0] as any;
+      console.log('Sample country properties:', firstCountry.properties);
+      console.log('Available property keys:', Object.keys(firstCountry.properties || {}));
+      
+      // Try to find a country that matches our data
+      const testCodes = ['DEU', 'GBR', 'FRA', 'ESP', 'ITA', 'NLD', 'CHE'];
+      for (const code of testCodes) {
+        const matching = countries.features.find((f: any) => {
+          const props = f.properties || {};
+          return props.ISO_A3 === code || props.iso_a3 === code || 
+                 props.ISO_A3_EH === code || props.ISO_A3_CD === code;
+        });
+        if (matching) {
+          console.log(`Found matching country for ${code}:`, (matching as any).properties);
+        }
+      }
+    }
 
     // Create the main group
     const g = svg.append('g');
@@ -78,18 +178,44 @@ export default function WorldMap({ className = '', countryData }: WorldMapProps)
       .append('path')
       .attr('d', path)
       .attr('fill', (d: any) => {
-        const countryCode = d.properties.ISO_A3;
-        const activity = transferData[countryCode] || 0;
-        return activity > 0 ? colorScale(activity) : '#1a1a2e';
+        // Try multiple possible property names for ISO_A3
+        const props = d.properties || {};
+        let countryCode = props.ISO_A3 || props.iso_a3 || props.ISO_A3_EH || props.ISO_A3_CD || null;
+        
+        // Fallback: try to map from country name if ISO code not found
+        if (!countryCode) {
+          const countryName = props.NAME || props.name || props.NAME_LONG || '';
+          countryCode = countryNameToISO[countryName] || null;
+        }
+        
+        const activity = countryCode ? (transferData[countryCode] || 0) : 0;
+        
+        if (activity > 0) {
+          const color = colorScale(activity);
+          // Log first few matches for debugging
+          if (activity > 100) {
+            console.log(`Country ${countryCode} (${props.NAME || 'unknown'}): activity=${activity}, color=${color}`);
+          }
+          return color;
+        }
+        return '#1a1a2e';
       })
       .attr('stroke', '#2a2a3e')
       .attr('stroke-width', 0.5)
       .attr('class', 'country')
       .style('cursor', 'pointer')
       .on('mouseover', function(event, d: any) {
-        const countryCode = d.properties.ISO_A3;
-        const activity = transferData[countryCode] || 0;
-        const countryName = d.properties.NAME || 'Unknown';
+        const props = d.properties || {};
+        let countryCode = props.ISO_A3 || props.iso_a3 || props.ISO_A3_EH || props.ISO_A3_CD || null;
+        
+        // Fallback: try to map from country name if ISO code not found
+        if (!countryCode) {
+          const countryName = props.NAME || props.name || props.NAME_LONG || '';
+          countryCode = countryNameToISO[countryName] || null;
+        }
+        
+        const activity = countryCode ? (transferData[countryCode] || 0) : 0;
+        const countryName = props.NAME || props.name || props.NAME_LONG || 'Unknown';
 
         // Highlight on hover
         d3.select(this)
@@ -129,13 +255,33 @@ export default function WorldMap({ className = '', countryData }: WorldMapProps)
 
     // Add subtle glow effect to active countries
     g.selectAll('.active-country')
-      .data(countries.features.filter((d: any) => transferData[d.properties.ISO_A3] > 0))
+      .data(countries.features.filter((d: any) => {
+        const props = d.properties || {};
+        let countryCode = props.ISO_A3 || props.iso_a3 || props.ISO_A3_EH || props.ISO_A3_CD || null;
+        
+        // Fallback: try to map from country name if ISO code not found
+        if (!countryCode) {
+          const countryName = props.NAME || props.name || props.NAME_LONG || '';
+          countryCode = countryNameToISO[countryName] || null;
+        }
+        
+        return countryCode && (transferData[countryCode] || 0) > 0;
+      }))
       .enter()
       .append('path')
       .attr('d', path)
       .attr('fill', 'none')
       .attr('stroke', (d: any) => {
-        const activity = transferData[d.properties.ISO_A3] || 0;
+        const props = d.properties || {};
+        let countryCode = props.ISO_A3 || props.iso_a3 || props.ISO_A3_EH || props.ISO_A3_CD || null;
+        
+        // Fallback: try to map from country name if ISO code not found
+        if (!countryCode) {
+          const countryName = props.NAME || props.name || props.NAME_LONG || '';
+          countryCode = countryNameToISO[countryName] || null;
+        }
+        
+        const activity = countryCode ? (transferData[countryCode] || 0) : 0;
         const threshold70 = maxValue * 0.7;
         const threshold40 = maxValue * 0.4;
         return activity > threshold70 ? '#e63946' : activity > threshold40 ? '#fca311' : '#533483';

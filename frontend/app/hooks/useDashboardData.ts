@@ -141,11 +141,13 @@ export function useCountryHeatmap(hours: number = 24) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
+      console.log('Heatmap data received:', data, 'Countries:', Object.keys(data).length);
       setCountryData(data);
       setError(null);
     } catch (err) {
       console.error('Failed to fetch country heatmap data:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
+      setCountryData({}); // Set empty object on error
     } finally {
       setLoading(false);
     }

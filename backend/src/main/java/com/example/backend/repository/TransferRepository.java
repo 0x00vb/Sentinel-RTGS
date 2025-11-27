@@ -85,14 +85,14 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
             FROM transfers
             WHERE sender_iban IS NOT NULL 
               AND LENGTH(sender_iban) >= 2
-              AND created_at >= :since
+              AND created_at >= CAST(:since AS TIMESTAMP WITH TIME ZONE)
             GROUP BY SUBSTRING(sender_iban, 1, 2)
             UNION ALL
             SELECT SUBSTRING(receiver_iban, 1, 2) AS country_code, COUNT(*) AS cnt
             FROM transfers
             WHERE receiver_iban IS NOT NULL 
               AND LENGTH(receiver_iban) >= 2
-              AND created_at >= :since
+              AND created_at >= CAST(:since AS TIMESTAMP WITH TIME ZONE)
             GROUP BY SUBSTRING(receiver_iban, 1, 2)
         )
         SELECT country_code, SUM(cnt) AS total_count

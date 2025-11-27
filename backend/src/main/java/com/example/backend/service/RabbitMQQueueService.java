@@ -39,12 +39,43 @@ public class RabbitMQQueueService {
                 return 0;
             }
 
-            // The QUEUE_MESSAGE_COUNT property contains the current message count
-            // Property key is "QUEUE_MESSAGE_COUNT" as defined in Spring AMQP
-            Object messageCountObj = queueProperties.get("QUEUE_MESSAGE_COUNT");
+            // Log all available properties for debugging
+            logger.debug("Available queue properties for '{}': {}", RabbitMQConfig.INBOUND_QUEUE, queueProperties);
+
+            // Try different possible property keys for message count
+            // Spring AMQP uses different keys depending on version
+            Object messageCountObj = null;
+            String[] possibleKeys = {
+                "QUEUE_MESSAGE_COUNT",
+                "QUEUE_MESSAGE_COUNT_AVAILABLE", 
+                "messageCount",
+                "MESSAGE_COUNT"
+            };
+            
+            for (String key : possibleKeys) {
+                messageCountObj = queueProperties.get(key);
+                if (messageCountObj != null) {
+                    logger.debug("Found message count using key '{}': {}", key, messageCountObj);
+                    break;
+                }
+            }
+            
+            // If still not found, try to get it from the properties directly
+            if (messageCountObj == null) {
+                // Check if there's a numeric value in any property
+                for (Object key : queueProperties.keySet()) {
+                    Object value = queueProperties.get(key);
+                    if (value instanceof Number && ((Number) value).intValue() > 0) {
+                        logger.debug("Found potential message count in property '{}': {}", key, value);
+                        messageCountObj = value;
+                        break;
+                    }
+                }
+            }
             
             if (messageCountObj == null) {
-                logger.warn("Could not retrieve message count for queue '{}'", RabbitMQConfig.INBOUND_QUEUE);
+                logger.warn("Could not retrieve message count for queue '{}'. Available properties: {}", 
+                           RabbitMQConfig.INBOUND_QUEUE, queueProperties.keySet());
                 return 0;
             }
 
@@ -52,14 +83,19 @@ public class RabbitMQQueueService {
             if (messageCountObj instanceof Number) {
                 messageCount = ((Number) messageCountObj).intValue();
             } else if (messageCountObj instanceof String) {
-                messageCount = Integer.parseInt((String) messageCountObj);
+                try {
+                    messageCount = Integer.parseInt((String) messageCountObj);
+                } catch (NumberFormatException e) {
+                    logger.warn("Could not parse message count as integer: {}", messageCountObj);
+                    return 0;
+                }
             } else {
                 logger.warn("Unexpected message count type for queue '{}': {}", 
                            RabbitMQConfig.INBOUND_QUEUE, messageCountObj.getClass());
                 return 0;
             }
 
-            logger.debug("Queue '{}' depth: {}", RabbitMQConfig.INBOUND_QUEUE, messageCount);
+            logger.info("Queue '{}' depth: {}", RabbitMQConfig.INBOUND_QUEUE, messageCount);
             return messageCount;
 
         } catch (Exception e) {
