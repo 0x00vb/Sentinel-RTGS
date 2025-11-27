@@ -43,6 +43,9 @@ public class TrafficSimulatorService {
     // Realistic IBAN pool - mix of generated and real-looking IBANs
     private static final List<String> IBAN_POOL = generateIbanPool();
 
+    // Currency-indexed IBAN map for O(1) lookup (initialized once)
+    private static final Map<String, List<String>> IBAN_BY_CURRENCY = initializeCurrencyIndex();
+
     // Bank names for realistic simulation
     private static final List<String> BANK_NAMES = Arrays.asList(
         "Deutsche Bank AG", "Commerzbank AG", "HSBC Bank PLC", "Barclays Bank PLC",
@@ -52,9 +55,6 @@ public class TrafficSimulatorService {
         "Raiffeisen Bank", "UniCredit Group", "Intesa Sanpaolo", "Banca Monte dei Paschi",
         "Banco Santander", "CaixaBank", "Bankia", "Sabadell", "Kutxabank"
     );
-
-    // Currencies with realistic distribution
-    private static final List<String> CURRENCIES = Arrays.asList("EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN");
 
     // Sanctions-triggering names (reduced frequency for realistic simulation)
     private static final List<String> POTENTIAL_SANCTIONS_NAMES = Arrays.asList(
@@ -184,9 +184,6 @@ public class TrafficSimulatorService {
         // Generate realistic amount (weighted distribution)
         BigDecimal amount = generateRealisticAmount();
 
-        // Select currency with realistic distribution
-        String currency = selectWeightedCurrency();
-
         // Select sender/receiver from bank pool
         String senderName = BANK_NAMES.get(ThreadLocalRandom.current().nextInt(BANK_NAMES.size()));
         String receiverName = BANK_NAMES.get(ThreadLocalRandom.current().nextInt(BANK_NAMES.size()));
@@ -200,13 +197,95 @@ public class TrafficSimulatorService {
             }
         }
 
-        // Select IBANs from pool (with repetition for account reuse)
+        // Select sender IBAN from pool
         String senderIban = IBAN_POOL.get(ThreadLocalRandom.current().nextInt(IBAN_POOL.size()));
-        String receiverIban = IBAN_POOL.get(ThreadLocalRandom.current().nextInt(IBAN_POOL.size()));
+        
+        // Derive currency from sender IBAN (matching AccountSeedingService logic)
+        // This ensures currency matches the account currency in the database
+        String currency = mapIbanToCurrency(senderIban);
+        
+        // Get IBANs with matching currency (O(1) lookup from pre-computed index)
+        List<String> matchingCurrencyIbans = IBAN_BY_CURRENCY.get(currency);
+        
+        if (matchingCurrencyIbans == null || matchingCurrencyIbans.isEmpty()) {
+            logger.error("No IBANs found for currency: {}. This should not happen. Sender IBAN: {}", currency, senderIban);
+            // Fallback: retry with a new sender (edge case handling)
+            return generateRealisticPacs008Message();
+        }
+        
+        // Filter out sender IBAN to ensure different accounts
+        // Use ArrayList for efficient random access
+        List<String> availableReceivers = new ArrayList<>();
+        for (String iban : matchingCurrencyIbans) {
+            if (!iban.equals(senderIban)) {
+                availableReceivers.add(iban);
+            }
+        }
+        
+        // Handle edge case: only one IBAN for this currency
+        if (availableReceivers.isEmpty()) {
+            // Select a different sender from a currency with multiple IBANs
+            logger.debug("Only one IBAN available for currency: {}. Selecting different sender.", currency);
+            // Find a currency with multiple IBANs
+            for (Map.Entry<String, List<String>> entry : IBAN_BY_CURRENCY.entrySet()) {
+                if (entry.getValue().size() > 1) {
+                    senderIban = entry.getValue().get(ThreadLocalRandom.current().nextInt(entry.getValue().size()));
+                    currency = entry.getKey();
+                    // Re-filter with new sender
+                    availableReceivers.clear();
+                    for (String iban : entry.getValue()) {
+                        if (!iban.equals(senderIban)) {
+                            availableReceivers.add(iban);
+                        }
+                    }
+                    break;
+                }
+            }
+            // If still empty (shouldn't happen with proper IBAN pool), use fallback
+            if (availableReceivers.isEmpty()) {
+                logger.warn("Unable to find suitable IBAN pair. Using fallback selection.");
+                // Fallback: use first two IBANs from pool (they may have different currencies, but this is edge case)
+                senderIban = IBAN_POOL.get(0);
+                currency = mapIbanToCurrency(senderIban);
+                // Try to find a matching currency receiver
+                List<String> fallbackReceivers = IBAN_BY_CURRENCY.get(currency);
+                if (fallbackReceivers != null && !fallbackReceivers.isEmpty()) {
+                    availableReceivers = new ArrayList<>(fallbackReceivers);
+                    availableReceivers.remove(senderIban);
+                }
+                if (availableReceivers.isEmpty() && IBAN_POOL.size() > 1) {
+                    // Last resort: use second IBAN and adjust currency
+                    String fallbackReceiver = IBAN_POOL.get(1);
+                    String fallbackCurrency = mapIbanToCurrency(fallbackReceiver);
+                    // Use receiver's currency if it has more IBANs
+                    if (IBAN_BY_CURRENCY.getOrDefault(fallbackCurrency, Collections.emptyList()).size() > 
+                        IBAN_BY_CURRENCY.getOrDefault(currency, Collections.emptyList()).size()) {
+                        currency = fallbackCurrency;
+                        senderIban = fallbackReceiver;
+                        availableReceivers = new ArrayList<>(IBAN_BY_CURRENCY.get(currency));
+                        availableReceivers.remove(senderIban);
+                    } else {
+                        availableReceivers.add(fallbackReceiver);
+                    }
+                }
+            }
+        }
+        
+        // Select receiver IBAN from filtered list (guaranteed to have matching currency)
+        // This will always succeed because we've ensured availableReceivers is not empty above
+        String receiverIban;
+        if (availableReceivers.isEmpty()) {
+            // Ultimate fallback (should never happen with proper IBAN pool)
+            logger.error("Critical: No receiver IBANs available. Using first IBAN as fallback.");
+            receiverIban = IBAN_POOL.get(0);
+        } else {
+            receiverIban = availableReceivers.get(ThreadLocalRandom.current().nextInt(availableReceivers.size()));
+        }
 
-        // Ensure different accounts for same bank
-        while (senderIban.equals(receiverIban) && senderName.equals(receiverName)) {
-            receiverIban = IBAN_POOL.get(ThreadLocalRandom.current().nextInt(IBAN_POOL.size()));
+        // Ensure different accounts for same bank (final check)
+        if (senderIban.equals(receiverIban) && senderName.equals(receiverName)) {
+            // If same IBAN and same bank name, select different receiver name
+            receiverName = BANK_NAMES.get(ThreadLocalRandom.current().nextInt(BANK_NAMES.size()));
         }
 
         return generatePacs008Xml(messageId, now, amount, currency,
@@ -231,16 +310,58 @@ public class TrafficSimulatorService {
         }
     }
 
-    private String selectWeightedCurrency() {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-        double rand = random.nextDouble();
+    /**
+     * Initialize currency-indexed IBAN map for O(1) lookup.
+     * This is computed once at class initialization for optimal performance.
+     * 
+     * @return Immutable map of currency -> list of IBANs
+     */
+    private static Map<String, List<String>> initializeCurrencyIndex() {
+        Map<String, List<String>> index = new HashMap<>();
+        
+        for (String iban : IBAN_POOL) {
+            String currency = mapIbanToCurrencyStatic(iban);
+            index.computeIfAbsent(currency, k -> new ArrayList<>()).add(iban);
+        }
+        
+        // Make lists immutable for thread safety and prevent accidental modification
+        Map<String, List<String>> immutableIndex = new HashMap<>();
+        for (Map.Entry<String, List<String>> entry : index.entrySet()) {
+            immutableIndex.put(entry.getKey(), Collections.unmodifiableList(entry.getValue()));
+        }
+        
+        logger.info("Initialized currency index: {} currencies, {} total IBANs", 
+                   immutableIndex.size(), IBAN_POOL.size());
+        for (Map.Entry<String, List<String>> entry : immutableIndex.entrySet()) {
+            logger.debug("Currency {}: {} IBANs", entry.getKey(), entry.getValue().size());
+        }
+        
+        return Collections.unmodifiableMap(immutableIndex);
+    }
 
-        // Realistic currency distribution
-        if (rand < 0.5) return "EUR";      // 50% EUR (Eurozone dominance)
-        if (rand < 0.7) return "USD";      // 20% USD (international trade)
-        if (rand < 0.8) return "GBP";      // 10% GBP (UK financial hub)
-        if (rand < 0.9) return "CHF";      // 10% CHF (Swiss banking)
-        return CURRENCIES.get(random.nextInt(CURRENCIES.size())); // 10% other
+    /**
+     * Map IBAN to currency based on country code.
+     * This matches the logic in AccountSeedingService to ensure currency compatibility.
+     * 
+     * @param iban The IBAN to map
+     * @return The currency code for the IBAN's country
+     */
+    private String mapIbanToCurrency(String iban) {
+        return mapIbanToCurrencyStatic(iban);
+    }
+
+    /**
+     * Static version for use in static initialization.
+     */
+    private static String mapIbanToCurrencyStatic(String iban) {
+        if (iban.startsWith("GB")) {
+            return "GBP";
+        } else if (iban.startsWith("CH")) {
+            return "CHF";
+        } else {
+            // EUR for most European countries (DE, FR, ES, IT, NL, etc.)
+            return "EUR";
+        }
     }
 
     private String generatePacs008Xml(UUID messageId, LocalDateTime timestamp, BigDecimal amount,

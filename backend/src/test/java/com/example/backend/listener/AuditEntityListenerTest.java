@@ -4,6 +4,7 @@ import com.example.backend.entity.Transfer;
 import com.example.backend.service.AuditService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -32,11 +33,20 @@ class AuditEntityListenerTest {
 
     @BeforeEach
     void setUp() {
+        // Set the static field via the setter (required for static injection pattern)
+        auditEntityListener.setAuditService(auditService);
+        
         testTransfer = new Transfer();
         testTransfer.setId(1L);
         testTransfer.setAmount(BigDecimal.valueOf(100.00));
         testTransfer.setStatus(Transfer.TransferStatus.PENDING);
         testTransfer.setExternalReference("REF123");
+    }
+
+    @AfterEach
+    void tearDown() {
+        // Clear static field to prevent test pollution
+        auditEntityListener.setAuditService(null);
     }
 
     @Test

@@ -25,8 +25,17 @@ public class AuditEntityListener {
 
     private static final Logger logger = LoggerFactory.getLogger(AuditEntityListener.class);
 
+    // Static reference used by JPA listener instances (which are not Spring-managed)
+    private static AuditService auditService;
+
+    /**
+     * Spring will call this setter on the managed bean instance at startup.
+     * This allows JPA-created listener instances to access the Spring-managed AuditService.
+     */
     @Autowired
-    private AuditService auditService;
+    public void setAuditService(AuditService auditService) {
+        AuditEntityListener.auditService = auditService;
+    }
 
     /**
      * Called after an entity is persisted (created).
@@ -34,6 +43,11 @@ public class AuditEntityListener {
      */
     @PostPersist
     public void postPersist(Object entity) {
+        if (auditService == null) {
+            logger.warn("AuditService not initialized, skipping audit for {}", entity.getClass().getSimpleName());
+            return;
+        }
+        
         try {
             String entityType = getEntityType(entity);
             Long entityId = getEntityId(entity);
@@ -61,6 +75,11 @@ public class AuditEntityListener {
      */
     @PostUpdate
     public void postUpdate(Object entity) {
+        if (auditService == null) {
+            logger.warn("AuditService not initialized, skipping audit for {}", entity.getClass().getSimpleName());
+            return;
+        }
+        
         try {
             String entityType = getEntityType(entity);
             Long entityId = getEntityId(entity);
@@ -84,6 +103,11 @@ public class AuditEntityListener {
      */
     @PostRemove
     public void postRemove(Object entity) {
+        if (auditService == null) {
+            logger.warn("AuditService not initialized, skipping audit for {}", entity.getClass().getSimpleName());
+            return;
+        }
+        
         try {
             String entityType = getEntityType(entity);
             Long entityId = getEntityId(entity);
