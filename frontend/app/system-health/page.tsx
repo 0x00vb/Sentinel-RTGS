@@ -21,8 +21,3 @@ export default function SystemHealthPage() {
     </ProtectedRoute>
   );
 }
-
-
-
-
-
