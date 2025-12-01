@@ -17,13 +17,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
-
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * REST Controller for Compliance Engine operations.
@@ -74,7 +79,7 @@ public class ComplianceController {
      * Get blocked transactions worklist for manual review.
      */
     @GetMapping("/worklist")
-    public ResponseEntity<Page<Transfer>> getWorklist(
+    public ResponseEntity<Page<WorklistItemDTO>> getWorklist(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
@@ -83,25 +88,219 @@ public class ComplianceController {
         logger.info("Fetching compliance worklist: page={}, size={}, sortBy={}, sortDir={}",
                    page, size, sortBy, sortDir);
 
-        // For now, return placeholder - would need TransferRepository integration
-        // In real implementation: transferRepository.findByStatus(TransferStatus.BLOCKED_AML, pageable)
-        return ResponseEntity.ok(Page.empty());
+        try {
+            // Create pageable with sorting
+            Sort sort = sortDir.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+            Pageable pageable = PageRequest.of(page, size, sort);
+
+            // Get blocked transfers with pagination
+            List<Transfer> blockedTransfers = transferRepository.findByStatus(Transfer.TransferStatus.BLOCKED_AML);
+            
+            // Apply pagination manually since we don't have Pageable support in the repository method
+            int start = (int) pageable.getOffset();
+            int end = Math.min(start + pageable.getPageSize(), blockedTransfers.size());
+            List<Transfer> pagedTransfers = start < blockedTransfers.size() 
+                ? blockedTransfers.subList(start, end) 
+                : new ArrayList<>();
+
+            // Convert to DTOs with compliance data from audit logs
+            List<WorklistItemDTO> worklistItems = new ArrayList<>();
+            ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+            for (Transfer transfer : pagedTransfers) {
+                WorklistItemDTO dto = createWorklistItemDTO(transfer, objectMapper);
+                worklistItems.add(dto);
+            }
+
+            // Create Page response
+            Page<WorklistItemDTO> result = new org.springframework.data.domain.PageImpl<>(
+                worklistItems, 
+                pageable, 
+                blockedTransfers.size()
+            );
+
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            logger.error("Error fetching compliance worklist: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * Create WorklistItemDTO from Transfer and extract compliance data from audit logs.
+     */
+    private WorklistItemDTO createWorklistItemDTO(Transfer transfer, ObjectMapper objectMapper) {
+        WorklistItemDTO dto = new WorklistItemDTO();
+        
+        // Basic transfer data
+        dto.setId("PAY-" + transfer.getId());
+        dto.setTransferId(transfer.getId());
+        dto.setTimestamp(transfer.getCreatedAt().toString());
+        dto.setAmount(transfer.getAmount().doubleValue());
+        dto.setCurrency(transfer.getSource() != null ? transfer.getSource().getCurrency() : "USD");
+        dto.setStatus("blocked_aml");
+        dto.setPipelineStage("risk_check");
+        
+        // Get sender/receiver info
+        if (transfer.getSource() != null) {
+            dto.setSenderName(transfer.getSource().getOwnerName());
+            dto.setSenderBIC(extractBICFromIBAN(transfer.getSenderIban()));
+        }
+        if (transfer.getDestination() != null) {
+            dto.setReceiverBIC(extractBICFromIBAN(transfer.getReceiverIban()));
+        }
+
+        // Extract compliance data from audit logs
+        List<AuditLog> complianceLogs = auditLogRepository.findByEntityTypeAndEntityIdOrderByCreatedAtAsc(
+            "transfer", transfer.getId());
+        
+        // Find the most recent compliance evaluation log
+        AuditLog complianceLog = complianceLogs.stream()
+            .filter(log -> log.getAction().startsWith("COMPLIANCE_"))
+            .reduce((first, second) -> second)
+            .orElse(null);
+
+        if (complianceLog != null) {
+            try {
+                // Parse JSON payload
+                @SuppressWarnings("unchecked")
+                Map<String, Object> payload = (Map<String, Object>) objectMapper.readValue(
+                    complianceLog.getPayload(), 
+                    Map.class
+                );
+
+                // Extract risk score from best match similarity
+                @SuppressWarnings("unchecked")
+                Map<String, Object> bestMatch = (Map<String, Object>) payload.get("bestMatch");
+                if (bestMatch != null && bestMatch.get("similarityScore") != null) {
+                    double similarity = ((Number) bestMatch.get("similarityScore")).doubleValue();
+                    dto.setRiskScore((int) Math.round(similarity));
+                } else {
+                    // Default risk score based on decision
+                    String decision = (String) payload.get("decision");
+                    dto.setRiskScore(decision != null && decision.contains("BLOCKED") ? 85 : 50);
+                }
+
+                // Extract watchlist match info
+                if (bestMatch != null) {
+                    String sanctionName = (String) bestMatch.get("sanctionName");
+                    String source = (String) bestMatch.get("source");
+                    if (sanctionName != null) {
+                        dto.setWatchlistMatch(sanctionName + (source != null ? " (" + source + ")" : ""));
+                    }
+                } else {
+                    String reason = (String) payload.get("reason");
+                    dto.setWatchlistMatch(reason != null ? reason : "Compliance Review Required");
+                }
+
+                // Build evidence array
+                List<Map<String, String>> evidence = new ArrayList<>();
+                
+                if (bestMatch != null) {
+                    double similarity = ((Number) bestMatch.getOrDefault("similarityScore", 0)).doubleValue();
+                    Map<String, String> nameEvidence = new HashMap<>();
+                    nameEvidence.put("type", "name_similarity");
+                    nameEvidence.put("value", String.format("%.0f%%", similarity));
+                    nameEvidence.put("description", String.format("Name similarity match: %.1f%%", similarity));
+                    evidence.add(nameEvidence);
+
+                    String source = (String) bestMatch.get("source");
+                    if (source != null) {
+                        Map<String, String> sourceEvidence = new HashMap<>();
+                        sourceEvidence.put("type", "sanctions_source");
+                        sourceEvidence.put("value", source);
+                        sourceEvidence.put("description", "Match found in " + source + " sanctions list");
+                        evidence.add(sourceEvidence);
+                    }
+                }
+
+                // Add amount threshold check
+                if (transfer.getAmount().doubleValue() > 2500000) {
+                    Map<String, String> amountEvidence = new HashMap<>();
+                    amountEvidence.put("type", "amount_threshold");
+                    amountEvidence.put("value", "Exceeded");
+                    amountEvidence.put("description", "Amount exceeds AML threshold of $2.5M");
+                    evidence.add(amountEvidence);
+                }
+
+                String decision = (String) payload.get("decision");
+                if (decision != null && decision.contains("BLOCKED")) {
+                    Map<String, String> decisionEvidence = new HashMap<>();
+                    decisionEvidence.put("type", "compliance_decision");
+                    decisionEvidence.put("value", "BLOCKED");
+                    decisionEvidence.put("description", payload.get("reason") != null ? 
+                        (String) payload.get("reason") : "Transaction blocked by compliance engine");
+                    evidence.add(decisionEvidence);
+                }
+
+                dto.setEvidence(evidence);
+
+                // Determine urgency based on risk score
+                if (dto.getRiskScore() >= 85) {
+                    dto.setUrgency("high");
+                } else if (dto.getRiskScore() >= 70) {
+                    dto.setUrgency("medium");
+                } else {
+                    dto.setUrgency("low");
+                }
+
+            } catch (Exception e) {
+                logger.warn("Error parsing compliance audit log for transfer {}: {}", 
+                    transfer.getId(), e.getMessage());
+                // Set defaults
+                dto.setRiskScore(75);
+                dto.setWatchlistMatch("Compliance Review Required");
+                dto.setUrgency("medium");
+                dto.setEvidence(new ArrayList<>());
+            }
+        } else {
+            // No compliance log found, set defaults
+            dto.setRiskScore(75);
+            dto.setWatchlistMatch("Compliance Review Required");
+            dto.setUrgency("medium");
+            dto.setEvidence(new ArrayList<>());
+        }
+
+        return dto;
+    }
+
+    /**
+     * Extract BIC from IBAN (simplified - in real implementation would use proper BIC lookup).
+     */
+    private String extractBICFromIBAN(String iban) {
+        if (iban == null || iban.length() < 4) {
+            return "UNKNOWN";
+        }
+        // Simplified: use first 4 chars as country code, then generate a mock BIC
+        String countryCode = iban.substring(0, 2);
+        String bankCode = iban.length() > 4 ? iban.substring(4, 8) : "XXXX";
+        return countryCode + bankCode + "XX";
     }
 
     /**
      * Get details of a specific blocked transfer.
      */
     @GetMapping("/worklist/{transferId}")
-    public ResponseEntity<Transfer> getWorklistItem(@PathVariable Long transferId) {
+    public ResponseEntity<WorklistItemDTO> getWorklistItem(@PathVariable Long transferId) {
         logger.info("Fetching worklist item: {}", transferId);
 
-        // Placeholder - would integrate with TransferRepository
-        // Transfer transfer = transferRepository.findById(transferId).orElse(null);
-        // if (transfer == null || transfer.getStatus() != TransferStatus.BLOCKED_AML) {
-        //     return ResponseEntity.notFound().build();
-        // }
+        try {
+            Transfer transfer = transferRepository.findById(transferId).orElse(null);
+            
+            if (transfer == null || transfer.getStatus() != Transfer.TransferStatus.BLOCKED_AML) {
+                return ResponseEntity.notFound().build();
+            }
 
-        return ResponseEntity.notFound().build(); // Placeholder
+            ObjectMapper objectMapper = new ObjectMapper();
+            WorklistItemDTO dto = createWorklistItemDTO(transfer, objectMapper);
+            
+            return ResponseEntity.ok(dto);
+            
+        } catch (Exception e) {
+            logger.error("Error fetching worklist item {}: {}", transferId, e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     /**
@@ -465,6 +664,69 @@ public class ComplianceController {
     }
 
     // ===== DTO CLASSES =====
+
+    /**
+     * DTO for worklist items with compliance data.
+     */
+    public static class WorklistItemDTO {
+        private String id;
+        private Long transferId;
+        private String timestamp;
+        private String senderBIC;
+        private String receiverBIC;
+        private double amount;
+        private String currency;
+        private String status;
+        private String pipelineStage;
+        private int riskScore;
+        private String senderName;
+        private String watchlistMatch;
+        private List<Map<String, String>> evidence;
+        private String urgency;
+
+        // Getters and setters
+        public String getId() { return id; }
+        public void setId(String id) { this.id = id; }
+        
+        public Long getTransferId() { return transferId; }
+        public void setTransferId(Long transferId) { this.transferId = transferId; }
+        
+        public String getTimestamp() { return timestamp; }
+        public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
+        
+        public String getSenderBIC() { return senderBIC; }
+        public void setSenderBIC(String senderBIC) { this.senderBIC = senderBIC; }
+        
+        public String getReceiverBIC() { return receiverBIC; }
+        public void setReceiverBIC(String receiverBIC) { this.receiverBIC = receiverBIC; }
+        
+        public double getAmount() { return amount; }
+        public void setAmount(double amount) { this.amount = amount; }
+        
+        public String getCurrency() { return currency; }
+        public void setCurrency(String currency) { this.currency = currency; }
+        
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+        
+        public String getPipelineStage() { return pipelineStage; }
+        public void setPipelineStage(String pipelineStage) { this.pipelineStage = pipelineStage; }
+        
+        public int getRiskScore() { return riskScore; }
+        public void setRiskScore(int riskScore) { this.riskScore = riskScore; }
+        
+        public String getSenderName() { return senderName; }
+        public void setSenderName(String senderName) { this.senderName = senderName; }
+        
+        public String getWatchlistMatch() { return watchlistMatch; }
+        public void setWatchlistMatch(String watchlistMatch) { this.watchlistMatch = watchlistMatch; }
+        
+        public List<Map<String, String>> getEvidence() { return evidence; }
+        public void setEvidence(List<Map<String, String>> evidence) { this.evidence = evidence; }
+        
+        public String getUrgency() { return urgency; }
+        public void setUrgency(String urgency) { this.urgency = urgency; }
+    }
 
     /**
      * DTO for compliance review history items.

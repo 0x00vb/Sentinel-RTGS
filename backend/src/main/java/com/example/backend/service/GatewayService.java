@@ -172,9 +172,11 @@ public class GatewayService {
         request.setSenderIban(message.getSenderIban());
         request.setReceiverIban(message.getReceiverIban());
 
-        // Store IBANs for compliance screening
         request.setSenderIban(message.getSenderIban());
         request.setReceiverIban(message.getReceiverIban());
+
+        request.setSenderName(message.getSenderName());
+        request.setReceiverName(message.getReceiverName());
 
         return request;
     }

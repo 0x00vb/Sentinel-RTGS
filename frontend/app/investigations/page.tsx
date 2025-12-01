@@ -1,10 +1,29 @@
 'use client';
 
 import ProtectedRoute from '../components/ProtectedRoute';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+
+// Type definition for AML transaction
+type AMLTransaction = {
+  id: string;
+  transferId: number;
+  timestamp: string;
+  senderBIC: string;
+  receiverBIC: string;
+  amount: number;
+  currency: string;
+  status: string;
+  pipelineStage: string;
+  riskScore: number;
+  senderName: string;
+  watchlistMatch: string;
+  evidence: Array<{ type: string; value: string; description: string }>;
+  urgency: string;
+};
 
 // Mock AML transaction data with BLOCKED_AML status - Multiple scenarios for testing
-const mockAMLTransactions = [
+// This is kept as fallback but will be replaced by real data
+const mockAMLTransactions: AMLTransaction[] = [
   // High-risk scenario: Sanctions evasion attempt
   {
     id: 'PAY-2025-001244',
@@ -343,22 +362,21 @@ function TransactionQueue({
   onSelectTransaction,
   currentPage,
   pageSize,
+  totalPages,
   onPageChange,
   onPageSizeChange
 }: {
-  transactions: typeof mockAMLTransactions;
-  selectedTransaction: typeof mockAMLTransactions[0] | null;
-  onSelectTransaction: (transaction: typeof mockAMLTransactions[0]) => void;
+  transactions: AMLTransaction[];
+  selectedTransaction: AMLTransaction | null;
+  onSelectTransaction: (transaction: AMLTransaction) => void;
   currentPage: number;
   pageSize: number;
+  totalPages: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
 }) {
-  const totalTransactions = transactions.length;
-  const totalPages = Math.ceil(totalTransactions / pageSize);
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const currentTransactions = transactions.slice(startIndex, endIndex);
+  // Note: transactions are already paginated from the API
+  const currentTransactions = transactions;
 
   return (
     <div className="flex flex-col h-full">
@@ -368,7 +386,7 @@ function TransactionQueue({
           AML Transaction Queue
         </h3>
         <p className="text-xs text-sentinel-text-muted mt-1">
-          {totalTransactions} transactions requiring review
+          {transactions.length > 0 ? `${transactions.length} transactions requiring review` : 'No transactions'}
         </p>
       </div>
 
@@ -436,52 +454,29 @@ function TransactionQueue({
             </select>
             <span>per page</span>
           </div>
-          <span className="text-xs text-sentinel-text-muted">
-            {startIndex + 1}-{Math.min(endIndex, totalTransactions)} of {totalTransactions}
-          </span>
+            <span className="text-xs text-sentinel-text-muted">
+              Showing {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+            </span>
         </div>
 
         {/* Page Navigation */}
         <div className="flex items-center justify-center space-x-1">
           <button
             onClick={() => onPageChange(currentPage - 1)}
-            disabled={currentPage === 1}
+            disabled={currentPage <= 1}
             className="px-2 py-1 text-xs border border-sentinel-border rounded hover:bg-sentinel-bg-tertiary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             ‹
           </button>
 
-          {/* Page Numbers */}
-          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-            let pageNum;
-            if (totalPages <= 5) {
-              pageNum = i + 1;
-            } else if (currentPage <= 3) {
-              pageNum = i + 1;
-            } else if (currentPage >= totalPages - 2) {
-              pageNum = totalPages - 4 + i;
-            } else {
-              pageNum = currentPage - 2 + i;
-            }
-
-            return (
-              <button
-                key={pageNum}
-                onClick={() => onPageChange(pageNum)}
-                className={`px-2 py-1 text-xs border rounded transition-colors ${
-                  pageNum === currentPage
-                    ? 'bg-sentinel-accent-primary text-sentinel-bg-primary border-sentinel-accent-primary'
-                    : 'border-sentinel-border hover:bg-sentinel-bg-tertiary'
-                }`}
-              >
-                {pageNum}
-              </button>
-            );
-          })}
+          {/* Page Numbers - Simplified for now */}
+          <span className="text-xs text-sentinel-text-muted">
+            Page {currentPage} {totalPages > 0 && `of ${totalPages}`}
+          </span>
 
           <button
             onClick={() => onPageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
+            disabled={currentPage >= totalPages || totalPages === 0}
             className="px-2 py-1 text-xs border border-sentinel-border rounded hover:bg-sentinel-bg-tertiary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             ›
@@ -499,14 +494,16 @@ function ComplianceOverrideModal({
   justification,
   onJustificationChange,
   onConfirm,
-  onCancel
+  onCancel,
+  loading = false
 }: {
   isOpen: boolean;
-  transaction: typeof mockAMLTransactions[0] | null;
+  transaction: AMLTransaction | null;
   justification: string;
   onJustificationChange: (value: string) => void;
   onConfirm: () => void;
   onCancel: () => void;
+  loading?: boolean;
 }) {
   if (!isOpen || !transaction) return null;
 
@@ -569,10 +566,10 @@ function ComplianceOverrideModal({
           </button>
           <button
             onClick={onConfirm}
-            disabled={!justification.trim()}
+            disabled={!justification.trim() || loading}
             className="px-4 py-2 text-sm bg-sentinel-accent-primary hover:bg-sentinel-accent-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-sentinel-bg-primary rounded transition-colors"
           >
-            Confirm Override
+            {loading ? 'Processing...' : 'Confirm Override'}
           </button>
         </div>
       </div>
@@ -585,7 +582,7 @@ function TransactionDetails({
   transaction,
   onOverrideClick
 }: {
-  transaction: typeof mockAMLTransactions[0] | null;
+  transaction: AMLTransaction | null;
   onOverrideClick: () => void;
 }) {
   if (!transaction) {
@@ -715,30 +712,126 @@ function TransactionDetails({
 }
 
 export default function InvestigationsPage() {
-  const [selectedTransaction, setSelectedTransaction] = useState<typeof mockAMLTransactions[0] | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [transactions, setTransactions] = useState<AMLTransaction[]>([]);
+  const [selectedTransaction, setSelectedTransaction] = useState<AMLTransaction | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(5);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showOverrideModal, setShowOverrideModal] = useState(false);
   const [overrideJustification, setOverrideJustification] = useState('');
+  const [overrideLoading, setOverrideLoading] = useState(false);
+
+  // Fetch transactions from API
+  const fetchTransactions = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/v1/compliance/worklist?page=${currentPage}&size=${pageSize}&sortBy=createdAt&sortDir=desc`
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch transactions: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      // Map backend DTO to frontend format
+      const mappedTransactions: AMLTransaction[] = data.content.map((item: any) => ({
+        id: item.id || `PAY-${item.transferId}`,
+        transferId: item.transferId,
+        timestamp: item.timestamp,
+        senderBIC: item.senderBIC || 'UNKNOWN',
+        receiverBIC: item.receiverBIC || 'UNKNOWN',
+        amount: item.amount || 0,
+        currency: item.currency || 'USD',
+        status: item.status || 'blocked_aml',
+        pipelineStage: item.pipelineStage || 'risk_check',
+        riskScore: item.riskScore || 75,
+        senderName: item.senderName || 'Unknown Sender',
+        watchlistMatch: item.watchlistMatch || 'Compliance Review Required',
+        evidence: item.evidence || [],
+        urgency: item.urgency || 'medium'
+      }));
+
+      setTransactions(mappedTransactions);
+      setTotalPages(data.totalPages || 0);
+      setTotalElements(data.totalElements || 0);
+    } catch (err) {
+      console.error('Error fetching transactions:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch transactions');
+      // Fallback to empty array on error
+      setTransactions([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, pageSize]);
+
+  // Fetch transactions on mount and when page/size changes
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
 
   const goToPage = (page: number) => {
-    setCurrentPage(Math.max(1, Math.min(page, Math.ceil(mockAMLTransactions.length / pageSize))));
+    setCurrentPage(Math.max(0, Math.min(page - 1, totalPages - 1)));
   };
 
   const changePageSize = (newPageSize: number) => {
     setPageSize(newPageSize);
-    setCurrentPage(1);
+    setCurrentPage(0);
   };
 
   const handleOverrideClick = () => {
     setShowOverrideModal(true);
   };
 
-  const handleOverrideConfirm = () => {
-    // TODO: Implement backend call for override
-    console.log('Override confirmed for transaction:', selectedTransaction?.id, 'with justification:', overrideJustification);
-    setShowOverrideModal(false);
-    setOverrideJustification('');
+  const handleOverrideConfirm = async () => {
+    if (!selectedTransaction || !overrideJustification.trim()) {
+      return;
+    }
+
+    setOverrideLoading(true);
+    try {
+      const response = await fetch(
+        `/api/v1/compliance/${selectedTransaction.transferId}/review`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            transferId: selectedTransaction.transferId,
+            decision: 'APPROVE',
+            reviewer: 'Compliance Officer', // TODO: Get from auth context
+            notes: overrideJustification
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to override: ${response.status} ${response.statusText}`);
+      }
+
+      // Refresh the transactions list
+      await fetchTransactions();
+      
+      // Clear selection and close modal
+      setSelectedTransaction(null);
+      setShowOverrideModal(false);
+      setOverrideJustification('');
+      
+      // Show success message (you could add a toast notification here)
+      alert('Transaction override successful');
+    } catch (err) {
+      console.error('Error overriding transaction:', err);
+      alert(`Failed to override transaction: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setOverrideLoading(false);
+    }
   };
 
   const handleOverrideCancel = () => {
@@ -758,31 +851,71 @@ export default function InvestigationsPage() {
           </p>
         </div>
 
-        {/* Main Compliance Cockpit Layout */}
-        <div className={`grid gap-6 h-[calc(100vh-200px)] ${selectedTransaction ? 'grid-cols-12' : 'grid-cols-1'}`}>
-          {/* Left Panel - Transaction Queue */}
-          <div className={`${selectedTransaction ? 'col-span-4' : 'col-span-1'} bg-sentinel-bg-secondary border border-sentinel-border rounded-lg overflow-hidden`}>
-            <TransactionQueue
-              transactions={mockAMLTransactions}
-              selectedTransaction={selectedTransaction}
-              onSelectTransaction={setSelectedTransaction}
-              currentPage={currentPage}
-              pageSize={pageSize}
-              onPageChange={goToPage}
-              onPageSizeChange={changePageSize}
-            />
+        {/* Error Message */}
+        {error && (
+          <div className="bg-sentinel-accent-danger/10 border border-sentinel-accent-danger/30 rounded-lg p-4">
+            <p className="text-sentinel-accent-danger text-sm">
+              Error: {error}
+            </p>
           </div>
+        )}
 
-          {/* Right Panel - Transaction Details (only show when transaction selected) */}
-          {selectedTransaction && (
-            <div className="col-span-8 bg-sentinel-bg-secondary border border-sentinel-border rounded-lg overflow-hidden">
-              <TransactionDetails
-                transaction={selectedTransaction}
-                onOverrideClick={handleOverrideClick}
+        {/* Loading State */}
+        {loading && transactions.length === 0 && (
+          <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto mb-4 bg-sentinel-bg-tertiary rounded-full flex items-center justify-center animate-pulse">
+                <svg className="w-8 h-8 text-sentinel-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </div>
+              <p className="text-sentinel-text-muted">Loading transactions...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && transactions.length === 0 && !error && (
+          <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto mb-4 bg-sentinel-bg-tertiary rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-sentinel-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <p className="text-sentinel-text-muted">No blocked transactions found</p>
+            </div>
+          </div>
+        )}
+
+        {/* Main Compliance Cockpit Layout */}
+        {(!loading || transactions.length > 0) && (
+          <div className={`grid gap-6 h-[calc(100vh-200px)] ${selectedTransaction ? 'grid-cols-12' : 'grid-cols-1'}`}>
+            {/* Left Panel - Transaction Queue */}
+            <div className={`${selectedTransaction ? 'col-span-4' : 'col-span-1'} bg-sentinel-bg-secondary border border-sentinel-border rounded-lg overflow-hidden`}>
+              <TransactionQueue
+                transactions={transactions}
+                selectedTransaction={selectedTransaction}
+                onSelectTransaction={setSelectedTransaction}
+                currentPage={currentPage + 1}
+                pageSize={pageSize}
+                totalPages={totalPages}
+                onPageChange={goToPage}
+                onPageSizeChange={changePageSize}
               />
             </div>
-          )}
-        </div>
+
+            {/* Right Panel - Transaction Details (only show when transaction selected) */}
+            {selectedTransaction && (
+              <div className="col-span-8 bg-sentinel-bg-secondary border border-sentinel-border rounded-lg overflow-hidden">
+                <TransactionDetails
+                  transaction={selectedTransaction}
+                  onOverrideClick={handleOverrideClick}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Compliance Override Modal */}
         <ComplianceOverrideModal
@@ -792,8 +925,10 @@ export default function InvestigationsPage() {
           onJustificationChange={setOverrideJustification}
           onConfirm={handleOverrideConfirm}
           onCancel={handleOverrideCancel}
+          loading={overrideLoading}
         />
       </div>
     </ProtectedRoute>
   );
 }
+

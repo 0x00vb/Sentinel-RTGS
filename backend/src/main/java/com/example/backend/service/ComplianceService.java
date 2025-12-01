@@ -149,12 +149,12 @@ public class ComplianceService {
 
         // Add sender IBAN (placeholder - in real implementation would extract from pacs.008)
         if (transfer.getSenderIban() != null) {
-            names.add(extractNameFromIban(transfer.getSenderIban()));
+            names.add(transfer.getSource().getOwnerName());
         }
 
         // Add receiver IBAN (placeholder)
         if (transfer.getReceiverIban() != null) {
-            names.add(extractNameFromIban(transfer.getReceiverIban()));
+            names.add(transfer.getDestination().getOwnerName());
         }
 
         // Filter out null/empty names
@@ -162,20 +162,6 @@ public class ComplianceService {
                    .filter(name -> name != null && !name.trim().isEmpty())
                    .distinct()
                    .toList();
-    }
-
-    /**
-     * Placeholder method to extract names from IBANs.
-     * In production, this would be replaced by proper parsing of pacs.008 party information.
-     */
-    private String extractNameFromIban(String iban) {
-        // This is a placeholder - in real implementation, names would come from pacs.008
-        // For demo purposes, we'll use some mock names
-        if (iban != null && iban.length() > 4) {
-            // Return last 4 characters as a mock name identifier
-            return "Party" + iban.substring(iban.length() - 4);
-        }
-        return null;
     }
 
     /**

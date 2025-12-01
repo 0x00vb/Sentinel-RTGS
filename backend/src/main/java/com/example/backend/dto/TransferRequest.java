@@ -7,8 +7,26 @@ public class TransferRequest {
     private UUID msgId;
     private String senderIban;
     private String receiverIban;
+    private String senderName;
+    private String receiverName;
     private BigDecimal amount;
     private String currency;
+
+    public String getSenderName() {
+        return senderName;
+    }
+
+    public void setSenderName(String senderName) {
+        this.senderName = senderName;
+    }
+
+    public String getReceiverName() {
+        return receiverName;
+    }
+
+    public void setReceiverName(String receiverName) {
+        this.receiverName = receiverName;
+    }
 
     public UUID getMsgId() {
         return msgId;
