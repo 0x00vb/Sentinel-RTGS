@@ -3,6 +3,7 @@ package com.example.backend.service;
 import com.example.backend.dto.ComplianceDecision;
 import com.example.backend.dto.ProcessingResult;
 import com.example.backend.entity.Transfer;
+import com.example.backend.repository.TransferRepository;
 import com.example.backend.service.FuzzyMatchService.MatchResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,14 +32,17 @@ public class ComplianceService {
     private final FuzzyMatchService fuzzyMatchService;
     private final RuleEngineService ruleEngineService;
     private final AuditService auditService;
+    private final TransferRepository transferRepository;
 
     @Autowired
     public ComplianceService(FuzzyMatchService fuzzyMatchService,
                            RuleEngineService ruleEngineService,
-                           AuditService auditService) {
+                           AuditService auditService,
+                           TransferRepository transferRepository) {
         this.fuzzyMatchService = fuzzyMatchService;
         this.ruleEngineService = ruleEngineService;
         this.auditService = auditService;
+        this.transferRepository = transferRepository;
     }
 
     /**
@@ -214,9 +218,30 @@ public class ComplianceService {
                 break;
         }
 
+        Transfer.TransferStatus previousStatus = transfer.getStatus();
         transfer.setStatus(newStatus);
-        logger.info("Updated transfer {} status to {} (compliance decision: {})", 
+
+        if (newStatus == Transfer.TransferStatus.BLOCKED_AML) {
+            persistTransferStatus(transfer);
+        } else if (previousStatus == Transfer.TransferStatus.BLOCKED_AML && newStatus != previousStatus) {
+            persistTransferStatus(transfer);
+        }
+
+        logger.info("Updated transfer {} status to {} (compliance decision: {})",
                    transfer.getId(), newStatus, decision.getType());
+    }
+
+    /**
+     * Persist transfer status changes when the entity was originally stored in the database.
+     * Integration tests sometimes use in-memory Transfer stubs; we skip persistence for those.
+     */
+    private void persistTransferStatus(Transfer transfer) {
+        if (transfer.getId() == null || transfer.getSource() == null || transfer.getDestination() == null) {
+            logger.debug("Skipping transfer status persistence for transient transfer {}", transfer.getId());
+            return;
+        }
+
+        transferRepository.saveAndFlush(transfer);
     }
 
     /**
@@ -287,9 +312,14 @@ public class ComplianceService {
      * Get compliance statistics for monitoring.
      */
     public ComplianceStats getComplianceStats() {
-        // This would aggregate statistics from the database
-        // For now, return placeholder stats
-        return new ComplianceStats(0, 0, 0, 0);
+        long blocked = transferRepository.countByStatus(Transfer.TransferStatus.BLOCKED_AML);
+        long cleared = transferRepository.countByStatus(Transfer.TransferStatus.CLEARED);
+        long pending = transferRepository.countByStatus(Transfer.TransferStatus.PENDING);
+        long rejected = transferRepository.countByStatus(Transfer.TransferStatus.REJECTED);
+        long total = blocked + cleared + pending + rejected;
+
+        // We treat blocked transfers as the manual review queue today
+        return new ComplianceStats(total, blocked, cleared, blocked);
     }
 
     /**

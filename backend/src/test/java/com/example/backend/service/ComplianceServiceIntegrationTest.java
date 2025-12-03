@@ -20,7 +20,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @TestPropertySource(properties = {
     "spring.jpa.hibernate.ddl-auto=create-drop",
     "spring.sql.init.mode=never",
-    "compliance.fuzzy.levenshtein-threshold=85"
+    "compliance.fuzzy.levenshtein-threshold=85",
+    "spring.datasource.url=jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH",
+    "spring.rabbitmq.listener.simple.auto-startup=false",
+    "spring.rabbitmq.listener.direct.auto-startup=false"
 })
 @Transactional
 class ComplianceServiceIntegrationTest {

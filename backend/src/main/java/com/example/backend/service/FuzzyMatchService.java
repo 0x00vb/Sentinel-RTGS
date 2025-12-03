@@ -68,7 +68,18 @@ public class FuzzyMatchService {
         List<SanctionsList> highRiskSanctions = sanctionsRepository.findHighRiskSanctions();
 
         for (SanctionsList sanction : highRiskSanctions) {
-            bkTree.insert(sanction.getNormalizedName(), sanction);
+            String normalized = sanction.getNormalizedName();
+            if (normalized == null || normalized.isBlank()) {
+                normalized = normalizeName(sanction.getName());
+                sanction.setNormalizedName(normalized);
+            }
+
+            if (normalized == null || normalized.isEmpty()) {
+                logger.debug("Skipping sanctions entry {} due to missing normalized name", sanction.getId());
+                continue;
+            }
+
+            bkTree.insert(normalized, sanction);
         }
 
         logger.info("BK-tree initialized with {} high-risk sanctions", highRiskSanctions.size());

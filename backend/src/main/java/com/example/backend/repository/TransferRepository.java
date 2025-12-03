@@ -43,6 +43,11 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
     List<Transfer> findByStatusOrderByCreatedAtDesc(Transfer.TransferStatus status);
 
     /**
+     * Count transfers by status for dashboard metrics.
+     */
+    long countByStatus(Transfer.TransferStatus status);
+
+    /**
      * Find blocked AML transfers for compliance officer worklist
      * Ordered by creation time for FIFO processing
      */
@@ -62,11 +67,6 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
     List<Transfer> findByStatusAndDateRange(@Param("status") Transfer.TransferStatus status,
                                            @Param("startDate") LocalDateTime startDate,
                                            @Param("endDate") LocalDateTime endDate);
-
-    /**
-     * Count transfers by status for dashboard metrics
-     */
-    long countByStatus(Transfer.TransferStatus status);
 
     /**
      * Get total transfer amount by status for reporting
