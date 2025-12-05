@@ -4,6 +4,7 @@ import ProtectedRoute from '../components/ProtectedRoute';
 import WorldMap from '../components/WorldMap';
 import { useState } from 'react';
 import { useDashboardMetrics, useDashboardEvents, useLiveMetrics, useCountryHeatmap } from '../hooks/useDashboardData';
+import { simulationApi, complianceApi } from '../services/api';
 
 export default function DashboardPage() {
   const { metrics, loading: metricsLoading, error: metricsError } = useDashboardMetrics();
@@ -15,13 +16,7 @@ export default function DashboardPage() {
   const startSimulation = async (messagesPerSecond = 5) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/v1/simulation/start?messagesPerSecond=${messagesPerSecond}`, {
-        method: 'POST'
-      });
-      if (!response.ok) {
-        console.error('Failed to start simulation:', response.status, response.statusText);
-        alert(`Failed to start simulation: ${response.status} ${response.statusText}`);
-      }
+      await simulationApi.start(messagesPerSecond);
     } catch (error: any) {
       console.error('Failed to start simulation:', error);
       alert(`Failed to start simulation: ${error.message}`);
@@ -32,13 +27,7 @@ export default function DashboardPage() {
   const stopSimulation = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/v1/simulation/stop', {
-        method: 'POST'
-      });
-      if (!response.ok) {
-        console.error('Failed to stop simulation:', response.status, response.statusText);
-        alert(`Failed to stop simulation: ${response.status} ${response.statusText}`);
-      }
+      await simulationApi.stop();
     } catch (error: any) {
       console.error('Failed to stop simulation:', error);
       alert(`Failed to stop simulation: ${error.message}`);
@@ -49,16 +38,8 @@ export default function DashboardPage() {
   const performIntegrityTest = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/v1/compliance/integrity/test', {
-        method: 'POST'
-      });
-      if (response.ok) {
-        const result = await response.json();
-        alert(result.message);
-      } else {
-        console.error('Failed to perform integrity test:', response.status, response.statusText);
-        alert(`Failed to perform integrity test: ${response.status} ${response.statusText}`);
-      }
+      const result = await complianceApi.testIntegrity();
+      alert(result.message || 'Integrity test completed');
     } catch (error: any) {
       console.error('Failed to perform integrity test:', error);
       alert(`Failed to perform integrity test: ${error.message}`);
@@ -307,15 +288,9 @@ export default function DashboardPage() {
               onClick={async () => {
                 setIsLoading(true);
                 try {
-                  const response = await fetch('/api/v1/simulation/send-test-message', {
-                    method: 'POST'
-                  });
-                  if (response.ok) {
-                    alert('Test message sent successfully');
-                  } else {
-                    alert(`Failed to send test message: ${response.status}`);
-                  }
-                } catch (error: any ) {
+                  await simulationApi.sendTestMessage();
+                  alert('Test message sent successfully');
+                } catch (error: any) {
                   console.error('Failed to send test message:', error);
                   alert(`Failed to send test message: ${error.message}`);
                 }

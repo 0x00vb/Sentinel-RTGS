@@ -2,6 +2,7 @@
 
 import ProtectedRoute from '../components/ProtectedRoute';
 import { useState, useEffect, useCallback } from 'react';
+import { complianceApi } from '../services/api';
 
 // Type definition for AML transaction
 type AMLTransaction = {
@@ -729,15 +730,12 @@ export default function InvestigationsPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(
-        `/api/v1/compliance/worklist?page=${currentPage}&size=${pageSize}&sortBy=createdAt&sortDir=desc`
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch transactions: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = await complianceApi.getWorklist({
+        page: currentPage,
+        size: pageSize,
+        sortBy: 'createdAt',
+        sortDir: 'desc'
+      });
       
       // Map backend DTO to frontend format
       const mappedTransactions: AMLTransaction[] = data.content.map((item: any) => ({
@@ -795,26 +793,11 @@ export default function InvestigationsPage() {
 
     setOverrideLoading(true);
     try {
-      const response = await fetch(
-        `/api/v1/compliance/${selectedTransaction.transferId}/review`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            transferId: selectedTransaction.transferId,
-            decision: 'APPROVE',
-            reviewer: 'Compliance Officer', // TODO: Get from auth context
-            notes: overrideJustification
-          })
-        }
+      await complianceApi.reviewTransaction(
+        selectedTransaction.transferId,
+        'APPROVE',
+        overrideJustification
       );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to override: ${response.status} ${response.statusText}`);
-      }
 
       // Refresh the transactions list
       await fetchTransactions();

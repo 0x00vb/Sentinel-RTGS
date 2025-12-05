@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { dashboardApi } from '../services/api';
 
 export interface DashboardMetrics {
   totalTransfersToday: number;
@@ -36,11 +37,7 @@ export function useDashboardMetrics() {
 
   const fetchMetrics = useCallback(async () => {
     try {
-      const response = await fetch('/api/v1/dashboard/metrics');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await dashboardApi.getMetrics();
       setMetrics(data);
       setError(null);
     } catch (err) {
@@ -68,11 +65,7 @@ export function useDashboardEvents(limit: number = 20) {
 
   const fetchEvents = useCallback(async () => {
     try {
-      const response = await fetch(`/api/v1/dashboard/events/recent?limit=${limit}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data: EventsResponse = await response.json();
+      const data = await dashboardApi.getEvents(limit);
       setEvents(data.events);
       setError(null);
     } catch (err) {
@@ -107,11 +100,8 @@ export function useLiveMetrics() {
 
   const fetchLiveMetrics = useCallback(async () => {
     try {
-      const response = await fetch('/api/v1/dashboard/metrics/live');
-      if (response.ok) {
-        const data = await response.json();
-        setLiveMetrics(data);
-      }
+      const data = await dashboardApi.getLiveMetrics();
+      setLiveMetrics(data);
     } catch (err) {
       console.error('Failed to fetch live metrics:', err);
     } finally {
@@ -136,11 +126,7 @@ export function useCountryHeatmap(hours: number = 24) {
 
   const fetchHeatmap = useCallback(async () => {
     try {
-      const response = await fetch(`/api/v1/dashboard/heatmap/countries?hours=${hours}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await dashboardApi.getCountryHeatmap(hours);
       console.log('Heatmap data received:', data, 'Countries:', Object.keys(data).length);
       setCountryData(data);
       setError(null);
