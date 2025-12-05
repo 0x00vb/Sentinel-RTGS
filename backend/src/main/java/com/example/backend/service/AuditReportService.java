@@ -35,7 +35,7 @@ public class AuditReportService {
             status.getTotalBreaches(),
             status.getLastVerificationTime(),
             status.getLastResults().get("DAILY"),
-            status.hasIntegrityBreaches()
+            !status.hasIntegrityBreaches()  // systemIntegrityIntact should be true when there are NO breaches
         );
     }
 
