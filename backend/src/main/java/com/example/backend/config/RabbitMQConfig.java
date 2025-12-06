@@ -69,7 +69,7 @@ public class RabbitMQConfig {
             SimpleRabbitListenerContainerFactoryConfigurer configurer) {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         configurer.configure(factory, connectionFactory);
-        factory.setAcknowledgeMode(AcknowledgeMode.MANUAL); // manual ack for safety
+        factory.setAcknowledgeMode(AcknowledgeMode.AUTO); // manual ack for safety
         factory.setConcurrentConsumers(3);
         factory.setMaxConcurrentConsumers(10);
         return factory;
